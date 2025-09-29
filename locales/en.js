@@ -329,5 +329,7 @@
 	"tool_edit_text": "Edit Text",
 	"tool_space_help_part_one": "Use the toolbar to add content.",
 	"tool_space_help_part_two": "You can also drop images or sound and video files.",
-	"tool_delete_space": "Really delete \"%s\"?"
+	"tool_delete_space": "Really delete \"%s\"?",
+	"suca": "suca",
+	"Log in or sign up with Keycloak": "Log in or sign up with Keycloak"
 }

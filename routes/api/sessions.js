@@ -10,6 +10,7 @@ var URL = require('url').URL;
 var express = require('express');
 var router = express.Router();
 
+// Login route
 router.post('/', function(req, res) {
   var data = req.body;
   if (!data.email || !data.password) {
@@ -42,7 +43,7 @@ router.post('/', function(req, res) {
 
           db.Session.create(session)
             .catch(err => {
-              console.error("Error creating Session:",err);
+              console.error("Error creating Session:", err);
               res.sendStatus(500);
             })
             .then(() => {
@@ -57,18 +58,37 @@ router.post('/', function(req, res) {
     });
 });
 
+// Logout route (local and Keycloak logout)
 router.delete('/current', function(req, res, next) {
   if (req.user) {
+    // Recupera il token della sessione
     var token = req.cookies['sdsession'];
+
+    // Distruggi la sessione locale
     db.Session.findOne({where: {token: token}})
       .then(session => {
-        session.destroy();
+        if (session) {
+          session.destroy(); // Distruggi la sessione locale
+        }
+      })
+      .catch(err => {
+        console.error("Error destroying session:", err);
       });
+
+    // Pulisci il cookie della sessione
     var domain = (process.env.NODE_ENV == "production") ? new URL(config.get('endpoint')).hostname : req.headers.hostname;
-    res.clearCookie('sdsession', { domain: domain });
-    res.sendStatus(204);
+    res.clearCookie('sdsession', { domain: domain, path: '/' });
+
+    // Se l'utente è loggato tramite Keycloak, esegui il logout da Keycloak
+    const keycloakLogoutUrl = `https://keycloak-dev.urbreath.tech/auth/realms/dev/protocol/openid-connect/logout`;
+    const postLogoutRedirectUri = `${config.get('endpoint')}/`; // Aggiungi URL di reindirizzamento post-logout
+    const logoutUrl = `${keycloakLogoutUrl}?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirectUri)}`;
+
+    // Reindirizza l'utente a Keycloak per il logout
+    res.redirect(logoutUrl);
+
   } else {
-    res.sendStatus(404);
+    res.sendStatus(404); // Utente non trovato
   }
 });
 
