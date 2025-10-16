@@ -34,5 +34,15 @@
   "mail_smtp_require_tls": true,
   "mail_smtp_user": "your.smtp.user",
   "mail_smtp_pass": "your.secret.smtp.password",
-  "spacedeck": {}
+  "spacedeck": {},
+
+ "keycloak": {
+    "issuer": "https://keycloak-dev.urbreath.tech/auth/realms/dev",
+    "client_id": "spacedeck_dev",
+    "client_secret": "VYLzqUysBZwy3Oa4rfGDmsy3T6D3TUbH",
+    "redirect_uri": "http://localhost:9666/callback",
+    "session_secret": "unaStringaSegretaMoltoLunga"
+  }
+
 }
+
