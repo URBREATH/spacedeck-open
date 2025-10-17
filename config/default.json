@@ -37,7 +37,7 @@
   "spacedeck": {},
 
  "keycloak": {
-    "issuer": "https://keycloak-dev.urbreath.tech/auth/realms/urbreath_auth",
+    "issuer": "https://keycloak-dev.urbreath.tech/auth/realms/urbreath-auth",
     "client_id": "spacedeck",
     "client_secret": "j69xA7E9DsoWdVY5feuDbDYyymHYTEN7",
     "redirect_uri": "https://spacedeck-dev.urbreath.tech/callback",
