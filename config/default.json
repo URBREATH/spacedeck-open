@@ -37,10 +37,10 @@
   "spacedeck": {},
 
  "keycloak": {
-    "issuer": "https://keycloak-dev.urbreath.tech/auth/realms/dev",
-    "client_id": "spacedeck_dev",
-    "client_secret": "VYLzqUysBZwy3Oa4rfGDmsy3T6D3TUbH",
-    "redirect_uri": "http://localhost:9666/callback",
+    "issuer": "https://keycloak-dev.urbreath.tech/auth/realms/urbreath_auth",
+    "client_id": "spacedeck",
+    "client_secret": "j69xA7E9DsoWdVY5feuDbDYyymHYTEN7",
+    "redirect_uri": "https://spacedeck-dev.urbreath.tech/callback",
     "session_secret": "unaStringaSegretaMoltoLunga"
   }
 
