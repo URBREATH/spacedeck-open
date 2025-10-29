@@ -15,7 +15,7 @@ const Op = Sequelize.Op;
 const { v4: uuidv4 } = require('uuid');
 
 router.get('/', (req, res) => {
-  res.render('index', { config:config, user:req.user });
+  res.redirect('/spaces');
 });
 
 router.get('/ping', (req, res) => {
