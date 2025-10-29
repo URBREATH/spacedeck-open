@@ -24,6 +24,18 @@
       <div class="header-right pull-right">
         <% if (!user) { %>
           <a class="btn btn-md btn-dark btn-round" href="/keycloak"><%=__("Log in or sign up with Keycloak")%></a>
+          <script>
+            (function triggerEmbeddedKeycloakLogin() {
+              try {
+                if (window.self === window.top) {
+                  return;
+                }
+              } catch (err) {
+                return;
+              }
+              window.location.replace('/keycloak');
+            })();
+          </script>
         <% } else { %>
           <a class="btn btn-md btn-dark btn-round" href="/spaces"><%=__("spaces")%></a>
           <a class="btn btn-md btn-dark btn-round" href="/logout"><%=__("logout")%></a>

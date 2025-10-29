@@ -61,6 +61,49 @@ app.get('/keycloak', async (req, res) => {
   }
 });
 
+app.post('/keycloak', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email) return res.status(400).json({ error: "missing_email" });
+
+    let user = await db.User.findOne({ where: { email } });
+    if (!user) {
+      user = await db.User.create({
+        email,
+        username: email,
+        display_name: name || email
+      });
+      const folder = await db.Folder.create({
+        title: "Home",
+        user_id: user.id,
+        parent_id: null
+      });
+      user.home_folder_id = folder.id;
+      await user.save();
+    }
+
+    const token = require('crypto').randomBytes(48).toString("hex");
+    const session = await db.Session.create({
+      user_id: user.id,
+      token,
+      ip: req.ip,
+      device: "web",
+      created_at: new Date()
+    });
+
+    var domain = process.env.NODE_ENV === "production"
+      ? new URL(config.get("endpoint")).hostname
+      : req.headers.hostname;
+
+    res.cookie("sdsession", token, { domain: domain, httpOnly: true });
+    res.status(201).json({ user, session });
+  } catch (err) {
+    console.error(err);
+    res.sendStatus(500);
+  }
+});
+
+
 // callback Keycloak
 app.get('/callback', keycloakCallback);
 
