@@ -38,7 +38,7 @@ var SpacedeckRoutes = {
           path: "/confirm/:token",
           handler: function(params) {
             if (!this.logged_in) {
-              this.redirect_to("/login");
+              this.redirect_to("/keycloak");
             } else {
               this.confirm_account(params.token);
             }
@@ -91,7 +91,7 @@ var SpacedeckRoutes = {
                 }.bind(this));
               }.bind(this));
             } else {
-              this.redirect_to("/login");
+              this.redirect_to("/keycloak");
             }
           }.bind(this)
         }
@@ -110,33 +110,9 @@ var SpacedeckRoutes = {
             if (this.logged_in) {
               this.redirect_to("/spaces");
             } else {
-              this.active_view = "signup";
+              this.redirect_to("/keycloak");
             }
 
-          }.bind(this)
-        }
-      ]);
-
-      this.router.add([
-        {
-          path: "/login",
-          handler: function(params) {
-            if (this.logged_in) {
-              if(this.invitation_token) {
-                accept_invitation(this.accept_invitation, function(m) {
-                  window._spacedeck_location_change = true;
-                  location.href = "spaces/"+m.space_id;
-                }.bind(this), function(xhr) { console.error(xhr); });
-              } else {
-                this.redirect_to("/spaces");
-              }
-            } else {
-              this.active_view = "login";
-              token = get_query_param("code");
-              if (token) {
-                this.login_with_token(token);
-              }
-            }
           }.bind(this)
         }
       ]);
@@ -147,10 +123,10 @@ var SpacedeckRoutes = {
           handler: function(params) {
             if (this.logged_in) {
               this.logout(function(m) {
-                this.redirect_to("/login");
+                this.redirect_to("/keycloak");
               }.bind(this), function(xhr) { console.error(xhr); });
             } else {
-              this.redirect_to("/login");
+              this.redirect_to("/keycloak");
             }
           }.bind(this)
         }
@@ -162,7 +138,7 @@ var SpacedeckRoutes = {
           handler: function(params) {
             if (!this.logged_in) {
               window._spacedeck_location_change = true;
-              location.href = "/login";
+              location.href = "/keycloak";
             } else {
 
               if (this.logged_in && this.user.home_folder_id) {
@@ -182,7 +158,7 @@ var SpacedeckRoutes = {
           handler: function(params) {
             if (!this.logged_in) {
               window._spacedeck_location_change = true;
-              location.href = "/";
+              location.href = "/keycloak";
             } else {
               this.active_view = "account";
             }
@@ -197,7 +173,7 @@ var SpacedeckRoutes = {
           handler: function(params) {
             if (!this.logged_in) {
               window._spacedeck_location_change = true;
-              location.href = "/";
+              location.href = "/keycloak";
             } else {
               this.active_view = "team";
               this.load_team();

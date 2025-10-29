@@ -12,16 +12,7 @@
     <script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
     <% if (!user) { %>
     <script>
-      (function triggerEmbeddedKeycloakLogin() {
-        try {
-          if (window.self === window.top) {
-            return;
-          }
-        } catch (err) {
-          return;
-        }
-        window.location.replace('/keycloak');
-      })();
+      window.location.replace('/keycloak');
     </script>
     <% } %>
 

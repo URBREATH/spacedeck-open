@@ -106,10 +106,6 @@ router.get('/account', (req, res) => {
   res.render('spacedeck', { config:config });
 });
 
-router.get('/login', (req, res) => {
-  res.render('spacedeck', { config:config, user:req.user });
-});
-
 router.get('/logout', (req, res) => {
   res.render('spacedeck', { config:config, user:req.user });
 });

@@ -289,7 +289,7 @@ var SpacedeckSpaces = {
 
           if (xhr.status == 403) {
             if (!this.logged_in) {
-              this.redirect_to("/login?space_id="+space_id);
+              this.redirect_to("/keycloak?space_id="+space_id);
             } else {
               this.redirect_to("/");
             }
