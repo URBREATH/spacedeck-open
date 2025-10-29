@@ -878,19 +878,29 @@ var SpacedeckSpaces = {
       }.bind(this));
     },
 
-    activate_access: function() {
+    activate_access: function(space) {
+      this.active_dropdown = "none";
       this.activate_modal("access");
-      //this.meta_visible = false;
 
-      if (this.active_space._id) {
-        this.access_settings_space = this.active_space;
-      } else if (this.active_folder && this.active_folder._id) {
-        this.access_settings_space = this.active_folder;
-      } else {
+      if (space && space._id) {
+        this.access_settings_space = space;
+        this.access_settings_memberships = [];
+        load_members(space, function(members) {
+          this.access_settings_memberships = members || [];
+        }.bind(this));
         return;
       }
-      
-      this.access_settings_memberships = this.active_space_memberships;
+
+      if (this.active_space && this.active_space._id) {
+        this.access_settings_space = this.active_space;
+        this.access_settings_memberships = this.active_space_memberships;
+        return;
+      }
+
+      if (this.active_folder && this.active_folder._id) {
+        this.access_settings_space = this.active_folder;
+        this.access_settings_memberships = this.active_space_memberships;
+      }
     },
     close_access: function() {
       this.close_modal();
