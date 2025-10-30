@@ -12,7 +12,162 @@
     <script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
     <% if (!user) { %>
     <script>
-      window.location.replace('/keycloak');
+      (function () {
+        var KEYCLOAK_URL = '/keycloak';
+        var allowedOrigins = <%- (config && config.keycloak && Array.isArray(config.keycloak.allowed_origins)) ? JSON.stringify(config.keycloak.allowed_origins) : "[]" %>;
+        var timeoutMs = <%- (config && config.keycloak && config.keycloak.post_message_timeout_ms) ? Number(config.keycloak.post_message_timeout_ms) : 5000 %>;
+
+        window.__spacedeckEmbeddedLoginQueue = window.__spacedeckEmbeddedLoginQueue || [];
+
+        function setPending(value) {
+          window.__spacedeckEmbeddedLoginPending = value;
+        }
+
+        function resolvePendingLogin() {
+          setPending(false);
+          var queue = window.__spacedeckEmbeddedLoginQueue || [];
+          while (queue.length) {
+            var fn = queue.shift();
+            try {
+              fn();
+            } catch (err) {
+              console.error('Error executing deferred load_user callback', err);
+            }
+          }
+        }
+
+        function releasePendingLogin() {
+          setPending(false);
+          if (window.__spacedeckEmbeddedLoginQueue) {
+            window.__spacedeckEmbeddedLoginQueue.length = 0;
+          }
+        }
+
+        function checkExistingSession() {
+          return fetch('/api/users/current', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+              'Accept': 'application/json'
+            }
+          })
+            .then(function (response) {
+              return response.ok;
+            })
+            .catch(function () {
+              return false;
+            });
+        }
+
+        function redirectToKeycloak() {
+          checkExistingSession().then(function (hasSession) {
+            if (hasSession) {
+              resolvePendingLogin();
+              window.location.replace('/spaces');
+            } else {
+              releasePendingLogin();
+              window.location.replace(KEYCLOAK_URL);
+            }
+          });
+        }
+
+        function isAllowedOrigin(origin) {
+          if (!origin) return false;
+          if (!allowedOrigins || !allowedOrigins.length) return true;
+          return allowedOrigins.indexOf(origin) !== -1;
+        }
+
+        if (window.self === window.top) {
+          redirectToKeycloak();
+          return;
+        }
+
+        setPending(true);
+
+        var resolved = false;
+        var fallbackTimer = window.setTimeout(function () {
+          if (!resolved) {
+            redirectToKeycloak();
+          }
+        }, timeoutMs);
+
+        function normalizeAccessToken(data) {
+          return data.accessToken || data.access_token || null;
+        }
+
+        function handleMessage(event) {
+          var data = event.data;
+
+          if (!data || typeof data !== 'object') {
+            return;
+          }
+
+          var isEmbedded = data.embedded === true || data.embedded === 'true';
+          if (!isEmbedded) {
+            return;
+          }
+
+          if (!isAllowedOrigin(event.origin)) {
+            console.warn('Blocked postMessage from unexpected origin:', event.origin);
+            return;
+          }
+
+          var token = normalizeAccessToken(data);
+          if (!token) {
+            console.warn('Missing access token in postMessage payload.');
+            return;
+          }
+
+          resolved = true;
+          window.clearTimeout(fallbackTimer);
+          window.removeEventListener('message', handleMessage);
+
+          fetch('/api/sessions/keycloak/token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              accessToken: token,
+              refreshToken: data.refreshToken || data.refresh_token,
+              language: data.language || data.locale,
+              email: data.email,
+              name: data.name || data.fullName,
+              profile: data.profile || null
+            })
+          })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error('Embedded login failed with status ' + response.status);
+              }
+              return response.json();
+            })
+            .then(function () {
+              resolvePendingLogin();
+              window.location.replace('/spaces');
+            })
+            .catch(function (err) {
+              console.error('Embedded login failed', err);
+              redirectToKeycloak();
+            });
+        }
+
+        window.addEventListener('message', handleMessage);
+
+        try {
+          var handshakeMessage = { type: 'spacedeck-auth-request' };
+          if (allowedOrigins && allowedOrigins.length) {
+            allowedOrigins.forEach(function (origin) {
+              window.parent.postMessage(handshakeMessage, origin);
+            });
+          } else {
+            window.parent.postMessage(handshakeMessage, '*');
+          }
+        } catch (err) {
+          console.warn('Unable to notify parent frame for embedded auth:', err);
+        }
+      })();
     </script>
     <% } %>
 

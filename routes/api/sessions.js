@@ -1,14 +1,171 @@
 "use strict";
 
-var config = require("config");
+const config = require("config");
 const db = require("../../models/db");
+const { v4: uuidv4 } = require("uuid");
 
-var bcrypt = require("bcryptjs");
-var crypto = require("crypto");
-var URL = require("url").URL;
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const { URL } = require("url");
 
-var express = require("express");
-var router = express.Router();
+const express = require("express");
+const router = express.Router();
+
+async function ensureKeycloakUser({ email, name, language, req }) {
+  if (!email) {
+    throw new Error("missing_email");
+  }
+
+  const normalizedEmail = email.toLowerCase();
+  let user = await db.User.findOne({ where: { email: normalizedEmail } });
+
+  if (!user) {
+    user = await db.User.create({
+      _id: uuidv4(),
+      email: normalizedEmail,
+      nickname: name || normalizedEmail,
+      prefs_language: language || (req?.i18n?.locale ?? "en"),
+      confirmation_token: null,
+    });
+
+    const homeFolder = await db.Space.create({
+      _id: uuidv4(),
+      name: (req?.i18n && typeof req.i18n.__ === "function") ? req.i18n.__("home") : "Home",
+      space_type: "folder",
+      creator_id: user._id,
+    });
+
+    user.home_folder_id = homeFolder._id;
+    await user.save();
+  } else {
+    let shouldSave = false;
+
+    if (!user._id) {
+      user._id = uuidv4();
+      shouldSave = true;
+    }
+
+    if (!user.nickname && name) {
+      user.nickname = name;
+      shouldSave = true;
+    }
+
+    if (!user.home_folder_id) {
+      const homeFolder = await db.Space.create({
+        _id: uuidv4(),
+        name: (req?.i18n && typeof req.i18n.__ === "function") ? req.i18n.__("home") : "Home",
+        space_type: "folder",
+        creator_id: user._id,
+      });
+      user.home_folder_id = homeFolder._id;
+      shouldSave = true;
+    }
+
+    if (language && user.prefs_language !== language) {
+      user.prefs_language = language;
+      shouldSave = true;
+    }
+
+    if (shouldSave) {
+      await user.save();
+    }
+  }
+
+  return user;
+}
+
+function isSecureRequest(req) {
+  if (req.secure) return true;
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  if (forwardedProto) {
+    return forwardedProto.split(",")[0].trim().toLowerCase() === "https";
+  }
+  return false;
+}
+
+async function createSessionForUser(req, res, user, options = {}) {
+  const token = crypto.randomBytes(48).toString("hex");
+
+  await db.Session.create({
+    token,
+    user_id: user._id,
+    ip: req.ip,
+    device: "web",
+    created_at: new Date(),
+  });
+
+  if (req.session) {
+    req.session.userId = user._id;
+    if (typeof req.session.save === "function") {
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => (err ? reject(err) : resolve()));
+      }).catch(() => {});
+    }
+  }
+
+  const domain =
+    process.env.NODE_ENV === "production"
+      ? new URL(config.get("endpoint")).hostname
+      : req.hostname || req.headers.hostname || "localhost";
+
+  const cookieOptions = {
+    httpOnly: true,
+    path: "/",
+  };
+
+  if (domain && domain !== "localhost") {
+    cookieOptions.domain = domain;
+  }
+
+  const secure = isSecureRequest(req);
+  const allowCrossSite = options.allowCrossSite === true;
+
+  if (allowCrossSite) {
+    if (secure) {
+      cookieOptions.sameSite = "none";
+      cookieOptions.secure = true;
+    } else {
+      console.warn(
+        "Attempted to issue cross-site session cookie over insecure transport; falling back to SameSite=Lax."
+      );
+      cookieOptions.sameSite = "lax";
+      cookieOptions.secure = secure;
+    }
+  } else {
+    cookieOptions.sameSite = "lax";
+    cookieOptions.secure = secure;
+  }
+
+  res.cookie("sdsession", token, cookieOptions);
+
+  const userJson = user.toJSON ? user.toJSON() : { ...user };
+  delete userJson.password_hash;
+  delete userJson.password_reset_token;
+  delete userJson.confirmation_token;
+
+  return {
+    user: userJson,
+    session: {
+      token,
+    },
+  };
+}
+
+function decodeJwt(token) {
+  if (!token || typeof token !== "string") return {};
+  const parts = token.split(".");
+  if (parts.length < 2) return {};
+
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4 || 4)) % 4);
+    const json = Buffer.from(padded, "base64").toString("utf8");
+    return JSON.parse(json);
+  } catch (err) {
+    console.error("Unable to decode JWT payload:", err.message);
+    return {};
+  }
+}
 
 /**
  * LOGIN locale (email + password)
@@ -67,56 +224,80 @@ router.post("/", function (req, res) {
  */
 router.post("/keycloak", async function (req, res) {
   try {
-    const { email, name } = req.body; // dati minimi che ti arrivano da Keycloak
+    const { email, name, language } = req.body;
     if (!email) {
       return res.status(400).json({ error: "missing_email" });
     }
 
-    // Controlla se l'utente esiste già
-    let user = await db.User.findOne({ where: { email } });
+    const user = await ensureKeycloakUser({ email, name, language, req });
+    const payload = await createSessionForUser(req, res, user);
 
-    if (!user) {
-      // Creazione utente base
-      user = await db.User.create({
-        email: email,
-        username: email, // puoi usare name o email
-        display_name: name || email,
-      });
-
-      // Crea la home folder
-      const folder = await db.Folder.create({
-        title: "Home",
-        user_id: user.id,
-        parent_id: null,
-      });
-
-      // Collega la home folder all’utente
-      user.home_folder_id = folder.id;
-      await user.save();
-
-      console.log("Creato utente Keycloak con home folder:", email);
-    }
-
-    // Genera sessione
-    const token = crypto.randomBytes(48).toString("hex");
-    const session = await db.Session.create({
-      user_id: user.id,
-      token,
-      ip: req.ip,
-      device: "web",
-      created_at: new Date(),
-    });
-
-    // Cookie sessione
-    var domain =
-      process.env.NODE_ENV == "production"
-        ? new URL(config.get("endpoint")).hostname
-        : req.headers.hostname;
-
-    res.cookie("sdsession", token, { domain: domain, httpOnly: true });
-    res.status(201).json({ user, session });
+    res.status(201).json(payload);
   } catch (err) {
     console.error("Errore login Keycloak:", err);
+    res.sendStatus(500);
+  }
+});
+
+/**
+ * LOGIN via Keycloak access token (postMessage embedding)
+ */
+router.post("/keycloak/token", async function (req, res) {
+  try {
+    const {
+      accessToken,
+      refreshToken,
+      language,
+      email: bodyEmail,
+      name: bodyName,
+      profile,
+    } = req.body || {};
+
+    if (!accessToken) {
+      return res.status(400).json({ error: "missing_access_token" });
+    }
+
+    const decodedClaims = decodeJwt(accessToken);
+    const computedEmail =
+      (bodyEmail ||
+        decodedClaims.email ||
+        decodedClaims.preferred_username ||
+        "").toLowerCase();
+
+    if (!computedEmail) {
+      return res.status(400).json({ error: "missing_email" });
+    }
+
+    const displayName =
+      bodyName ||
+      decodedClaims.name ||
+      decodedClaims.preferred_username ||
+      decodedClaims.given_name ||
+      decodedClaims.family_name ||
+      computedEmail;
+
+    const user = await ensureKeycloakUser({
+      email: computedEmail,
+      name: displayName,
+      language: language || decodedClaims.locale,
+      req,
+    });
+
+    const payload = await createSessionForUser(req, res, user, {
+      allowCrossSite: true,
+    });
+
+    if (refreshToken) {
+      payload.session.refreshToken = refreshToken;
+    }
+
+    if (profile) {
+      payload.profile = profile;
+    }
+
+    res.status(201).json(payload);
+  } catch (err) {
+    console.error("Errore login Keycloak token:", err);
     res.sendStatus(500);
   }
 });
