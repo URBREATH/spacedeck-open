@@ -13,9 +13,7 @@
     <% if (!user) { %>
     <script>
       (function () {
-        if (window.self === window.top) {
-          return;
-        }
+        if (window.self === window.top) return;
 
         var KEYCLOAK_URL = '/keycloak';
         var allowedOrigins = <%- (config && config.keycloak && Array.isArray(config.keycloak.allowed_origins)) ? JSON.stringify(config.keycloak.allowed_origins) : "[]" %>;
@@ -23,6 +21,7 @@
         var postLoginTimeout = timeoutMs + 5000;
 
         window.__spacedeckEmbeddedLoginPending = true;
+        window.__spacedeckEmbeddedAuthenticated = false;
         window.__spacedeckEmbeddedLoginQueue = window.__spacedeckEmbeddedLoginQueue || [];
 
         var settled = false;
@@ -34,9 +33,7 @@
           if (!queue || !queue.length) return;
           while (queue.length) {
             var fn = queue.shift();
-            try {
-              fn();
-            } catch (err) {
+            try { fn(); } catch (err) {
               console.error('Error executing deferred load_user callback:', err);
             }
           }
@@ -49,9 +46,7 @@
 
         function originAllowed(origin) {
           if (!origin) return false;
-          if (!allowedOrigins || allowedOrigins.length === 0) {
-            return true;
-          }
+          if (!allowedOrigins || allowedOrigins.length === 0) return true;
           return allowedOrigins.indexOf(origin) !== -1;
         }
 
@@ -63,6 +58,31 @@
           window.removeEventListener('message', handleMessage);
         }
 
+        function persistToken(token) {
+          try {
+            window.api_token = token;
+            if (typeof api_token !== 'undefined') {
+              api_token = token;
+            }
+          } catch (err) {
+            console.warn('Unable to expose session token to frontend', err);
+          }
+
+          try {
+            if (window.sessionStorage) {
+              window.sessionStorage.setItem('sd_session_token', token);
+            }
+          } catch (storageErr) {
+            console.warn('Unable to persist embedded session token', storageErr);
+          }
+
+          try {
+            document.cookie = 'sdsession=' + token + '; Path=/; SameSite=None; Secure; Domain=' + window.location.hostname;
+          } catch (cookieErr) {
+            console.warn('Unable to set fallback session cookie', cookieErr);
+          }
+        }
+
         function completeLogin(payload) {
           if (settled) return;
           settled = true;
@@ -70,32 +90,7 @@
           cleanupListeners();
 
           if (payload && payload.session && payload.session.token) {
-            try {
-              window.api_token = payload.session.token;
-            if (typeof api_token !== 'undefined') {
-              api_token = payload.session.token;
-            }
-            } catch (err) {
-              console.warn('Unable to expose session token to frontend', err);
-            }
-            try {
-              if (window.sessionStorage) {
-                window.sessionStorage.setItem('sd_session_token', payload.session.token);
-              }
-            } catch (storageErr) {
-              console.warn('Unable to persist embedded session token', storageErr);
-            }
-            try {
-              document.cookie = [
-                'sdsession=' + payload.session.token,
-                'Path=/',
-                'SameSite=None',
-                'Secure',
-                'Domain=' + window.location.hostname
-              ].join('; ');
-            } catch (cookieErr) {
-              console.warn('Unable to set fallback session cookie', cookieErr);
-            }
+            persistToken(payload.session.token);
           }
 
           window.__spacedeckEmbeddedAuthenticated = true;
@@ -106,9 +101,7 @@
           settled = true;
           markSettled();
           cleanupListeners();
-          if (reason) {
-            console.warn('Embedded login fallback:', reason);
-          }
+          if (reason) console.warn('Embedded login fallback:', reason);
           window.location.replace(KEYCLOAK_URL);
         }
 
@@ -118,23 +111,14 @@
 
         function handleMessage(event) {
           var data = event.data;
-          if (!data || typeof data !== 'object') {
-            return;
-          }
-
+          if (!data || typeof data !== 'object') return;
           if (!originAllowed(event.origin)) {
             console.warn('Blocked postMessage from unexpected origin:', event.origin);
             return;
           }
 
-          var isEmbedded =
-            data.embedded === true ||
-            data.type === 'spacedeck-embedded-auth' ||
-            data.type === 'spacedeck-token';
-
-          if (!isEmbedded) {
-            return;
-          }
+          var isEmbedded = data.embedded === true || data.type === 'spacedeck-embedded-auth' || data.type === 'spacedeck-token';
+          if (!isEmbedded) return;
 
           var accessToken = normalizeToken(data);
           if (!accessToken) {
@@ -152,9 +136,7 @@
           console.log('Embedded login: exchanging token');
           fetch('/api/sessions/keycloak/token', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
               accessToken: accessToken,
@@ -166,11 +148,8 @@
             })
           })
             .then(function (response) {
-            console.log('Embedded login: probe status', response.status);
               console.log('Embedded login: exchange status', response.status);
-              if (!response.ok) {
-                throw new Error('Embedded login failed with status ' + response.status);
-              }
+              if (!response.ok) throw new Error('exchange_failed_' + response.status);
               return response.json();
             })
             .then(function (payload) {
@@ -188,7 +167,6 @@
           handshakeStarted = true;
 
           window.addEventListener('message', handleMessage);
-
           handshakeTimer = window.setTimeout(function () {
             fallbackLogin('timeout waiting token');
           }, Math.max(timeoutMs, 3000));
@@ -216,30 +194,18 @@
           console.warn('Unable to read embedded session token', storageErr);
         }
         if (storedSessionToken) {
-          window.api_token = storedSessionToken;
-        if (typeof api_token !== 'undefined') {
-          api_token = storedSessionToken;
-        }
-        }
-
-        var initialHeaders = {
-          'Accept': 'application/json'
-        };
-        if (window.api_token) {
-          initialHeaders['X-Spacedeck-Auth'] = window.api_token;
+          persistToken(storedSessionToken);
         }
 
         console.log('Embedded login: probing current user');
         fetch('/api/users/current', {
           method: 'GET',
           credentials: 'include',
-          headers: initialHeaders
+          headers: { 'Accept': 'application/json' }
         })
           .then(function (response) {
             console.log('Embedded login: probe status', response.status);
-            if (!response.ok) {
-              throw new Error('not_authenticated');
-            }
+            if (!response.ok) throw new Error('not_authenticated');
             return response.json();
           })
           .then(function () {

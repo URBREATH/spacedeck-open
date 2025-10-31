@@ -38,7 +38,7 @@ var SpacedeckRoutes = {
           path: "/confirm/:token",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending) {
+              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
                 return;
               }
               this.redirect_to("/keycloak");
@@ -140,7 +140,7 @@ var SpacedeckRoutes = {
           path: "/spaces",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending) {
+              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
                 return;
               }
               window._spacedeck_location_change = true;
@@ -163,7 +163,7 @@ var SpacedeckRoutes = {
           path: "/account",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending) {
+              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
                 return;
               }
               window._spacedeck_location_change = true;
@@ -181,7 +181,7 @@ var SpacedeckRoutes = {
           path: "/team",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending) {
+              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
                 return;
               }
               window._spacedeck_location_change = true;
