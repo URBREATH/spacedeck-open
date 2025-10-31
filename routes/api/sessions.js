@@ -255,7 +255,10 @@ router.post("/keycloak/token", async function (req, res) {
       return res.status(400).json({ error: "missing_access_token" });
     }
 
+    console.log('[Keycloak Token] incoming body:', JSON.stringify(req.body || {}));
+
     const decodedClaims = decodeJwt(accessToken);
+    console.log('[Keycloak Token] decoded claims:', decodedClaims ? { email: decodedClaims.email, preferred_username: decodedClaims.preferred_username } : null);
     const computedEmail =
       (bodyEmail ||
         decodedClaims.email ||
@@ -280,6 +283,8 @@ router.post("/keycloak/token", async function (req, res) {
       language: language || decodedClaims.locale,
       req,
     });
+
+    console.log('[Keycloak Token] resolved user:', user ? { id: user._id, email: user.email, home_folder_id: user.home_folder_id } : null);
 
     const payload = await createSessionForUser(req, res, user, {
       allowCrossSite: true,

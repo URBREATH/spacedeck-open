@@ -13,7 +13,7 @@
     <% if (!user) { %>
     <script>
       (function () {
-        if (window.self === window.top) return;
+        var isEmbedded = window.self !== window.top;
 
         var KEYCLOAK_URL = '/keycloak';
         var allowedOrigins = <%- (config && config.keycloak && Array.isArray(config.keycloak.allowed_origins)) ? JSON.stringify(config.keycloak.allowed_origins) : "[]" %>;
@@ -106,7 +106,6 @@
         function completeLogin(payload) {
           if (settled) return;
           settled = true;
-          markSettled();
           cleanupListeners();
 
           if (payload && payload.session && payload.session.token) {
@@ -114,6 +113,8 @@
           }
 
           window.__spacedeckEmbeddedAuthenticated = true;
+          markSettled();
+
           if (window.location.pathname !== '/spaces') {
             window.location.replace('/spaces');
           }
