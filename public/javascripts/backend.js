@@ -2,6 +2,17 @@ var api_endpoint = ENV.apiEndpoint;
 var api_socket_endpoint = ENV.websocketsEndpoint;
 
 var api_token = null;
+
+try {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    var storedSessionToken = window.sessionStorage.getItem("sd_session_token");
+    if (storedSessionToken) {
+      api_token = storedSessionToken;
+    }
+  }
+} catch (err) {
+  console.warn("Unable to restore session token from storage", err);
+}
 var websocket = null;
 var channel_id = null;
 var space_auth = null;

@@ -165,17 +165,6 @@ if (config.get('storage_local_path')) {
   }));
 }
 
-// -------------------- ROUTE PROTETTE E LOGIN --------------------
-function requireLogin(req, res, next) {
-  if (!req.user) return res.redirect('/keycloak');
-  next();
-}
-
-// esempio: proteggi /spaces
-app.get('/spaces', requireLogin, (req, res) => {
-  res.render('spaces', { user: req.user });
-});
-
 // -------------------- ERRORI --------------------
 if (app.get('env') === 'development') {
   app.set('view cache', false);

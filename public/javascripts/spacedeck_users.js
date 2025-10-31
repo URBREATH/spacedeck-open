@@ -240,6 +240,15 @@ SpacedeckUsers = {
         this.sidebar_state = "closed";
         this.loading_user = false;
         api_token = null;
+        if (typeof window !== "undefined") {
+          try {
+            if (window.sessionStorage) {
+              window.sessionStorage.removeItem("sd_session_token");
+            }
+          } catch (err) {
+            console.warn("Unable to clear embedded session token", err);
+          }
+        }
         this.user = {};
         this.active_content_type = "login";
         this.redirect_to("/");

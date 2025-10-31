@@ -13,6 +13,205 @@
     <% if (!user) { %>
     <script>
       (function () {
+        if (window.self === window.top) {
+          return;
+        }
+
+        var KEYCLOAK_URL = '/keycloak';
+        var allowedOrigins = <%- (config && config.keycloak && Array.isArray(config.keycloak.allowed_origins)) ? JSON.stringify(config.keycloak.allowed_origins) : "[]" %>;
+        var timeoutMs = <%- (config && config.keycloak && config.keycloak.post_message_timeout_ms) ? Number(config.keycloak.post_message_timeout_ms) : 5000 %>;
+        var postLoginTimeout = timeoutMs + 5000;
+
+        window.__spacedeckEmbeddedLoginPending = true;
+        window.__spacedeckEmbeddedLoginQueue = window.__spacedeckEmbeddedLoginQueue || [];
+
+        var settled = false;
+        var handshakeStarted = false;
+        var handshakeTimer = null;
+
+        function flushQueue() {
+          var queue = window.__spacedeckEmbeddedLoginQueue;
+          if (!queue || !queue.length) return;
+          while (queue.length) {
+            var fn = queue.shift();
+            try {
+              fn();
+            } catch (err) {
+              console.error('Error executing deferred load_user callback:', err);
+            }
+          }
+        }
+
+        function markSettled() {
+          window.__spacedeckEmbeddedLoginPending = false;
+          flushQueue();
+        }
+
+        function originAllowed(origin) {
+          if (!origin) return false;
+          if (!allowedOrigins || allowedOrigins.length === 0) {
+            return true;
+          }
+          return allowedOrigins.indexOf(origin) !== -1;
+        }
+
+        function cleanupListeners() {
+          if (handshakeTimer) {
+            window.clearTimeout(handshakeTimer);
+            handshakeTimer = null;
+          }
+          window.removeEventListener('message', handleMessage);
+        }
+
+        function completeLogin(payload) {
+          if (settled) return;
+          settled = true;
+          markSettled();
+          cleanupListeners();
+
+          if (payload && payload.session && payload.session.token) {
+            try {
+              window.api_token = payload.session.token;
+            } catch (err) {
+              console.warn('Unable to expose session token to frontend', err);
+            }
+            try {
+              if (window.sessionStorage) {
+                window.sessionStorage.setItem('sd_session_token', payload.session.token);
+              }
+            } catch (storageErr) {
+              console.warn('Unable to persist embedded session token', storageErr);
+            }
+          }
+
+          window.location.replace('/spaces');
+        }
+
+        function fallbackLogin(reason) {
+          if (settled) return;
+          settled = true;
+          markSettled();
+          cleanupListeners();
+          if (reason) {
+            console.warn('Embedded login fallback:', reason);
+          }
+          window.location.replace(KEYCLOAK_URL);
+        }
+
+        function normalizeToken(data) {
+          return data && (data.accessToken || data.access_token || null);
+        }
+
+        function handleMessage(event) {
+          var data = event.data;
+          if (!data || typeof data !== 'object') {
+            return;
+          }
+
+          if (!originAllowed(event.origin)) {
+            console.warn('Blocked postMessage from unexpected origin:', event.origin);
+            return;
+          }
+
+          var isEmbedded =
+            data.embedded === true ||
+            data.type === 'spacedeck-embedded-auth' ||
+            data.type === 'spacedeck-token';
+
+          if (!isEmbedded) {
+            return;
+          }
+
+          var accessToken = normalizeToken(data);
+          if (!accessToken) {
+            console.warn('postMessage payload missing access token');
+            return;
+          }
+
+          if (handshakeTimer) {
+            window.clearTimeout(handshakeTimer);
+            handshakeTimer = window.setTimeout(function () {
+              fallbackLogin('token exchange timeout');
+            }, postLoginTimeout);
+          }
+
+          fetch('/api/sessions/keycloak/token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              accessToken: accessToken,
+              refreshToken: data.refreshToken || data.refresh_token,
+              language: data.language || data.locale,
+              email: data.email,
+              name: data.name || data.fullName || data.preferred_username,
+              profile: data.profile || null
+            })
+          })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error('Embedded login failed with status ' + response.status);
+              }
+              return response.json();
+            })
+            .then(completeLogin)
+            .catch(function (err) {
+              console.error('Embedded login error', err);
+              fallbackLogin('token exchange failed');
+            });
+        }
+
+        function startHandshake() {
+          if (handshakeStarted || settled) return;
+          handshakeStarted = true;
+
+          window.addEventListener('message', handleMessage);
+
+          handshakeTimer = window.setTimeout(function () {
+            fallbackLogin('timeout waiting token');
+          }, Math.max(timeoutMs, 3000));
+
+          try {
+            var handshakeMessage = { type: 'spacedeck-auth-request' };
+            if (allowedOrigins && allowedOrigins.length) {
+              allowedOrigins.forEach(function (origin) {
+                window.parent.postMessage(handshakeMessage, origin);
+              });
+            } else {
+              window.parent.postMessage(handshakeMessage, '*');
+            }
+          } catch (err) {
+            console.warn('Unable to notify parent frame for embedded auth:', err);
+          }
+        }
+
+        fetch('/api/users/current', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error('not_authenticated');
+            }
+            return response.json();
+          })
+          .then(function () {
+            completeLogin(null);
+          })
+          .catch(function () {
+            startHandshake();
+          });
+      })();
+    </script>
+    <% } %>
+    <% if (!user) { %>
+    <script>
+      (function () {
         var KEYCLOAK_URL = '/keycloak';
         var allowedOrigins = <%- (config && config.keycloak && Array.isArray(config.keycloak.allowed_origins)) ? JSON.stringify(config.keycloak.allowed_origins) : "[]" %>;
         var timeoutMs = <%- (config && config.keycloak && config.keycloak.post_message_timeout_ms) ? Number(config.keycloak.post_message_timeout_ms) : 5000 %>;
