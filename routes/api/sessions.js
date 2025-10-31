@@ -259,6 +259,9 @@ router.post("/keycloak/token", async function (req, res) {
 
     const decodedClaims = decodeJwt(accessToken);
     console.log('[Keycloak Token] decoded claims:', decodedClaims ? { email: decodedClaims.email, preferred_username: decodedClaims.preferred_username } : null);
+
+    console.log('[Keycloak Token] incoming email/name', bodyEmail, bodyName);
+
     const computedEmail =
       (bodyEmail ||
         decodedClaims.email ||
