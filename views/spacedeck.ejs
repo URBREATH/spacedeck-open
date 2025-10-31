@@ -72,6 +72,9 @@
           if (payload && payload.session && payload.session.token) {
             try {
               window.api_token = payload.session.token;
+            if (typeof api_token !== 'undefined') {
+              api_token = payload.session.token;
+            }
             } catch (err) {
               console.warn('Unable to expose session token to frontend', err);
             }
@@ -87,20 +90,15 @@
                 'sdsession=' + payload.session.token,
                 'Path=/',
                 'SameSite=None',
-                'Secure'
+                'Secure',
+                'Domain=' + window.location.hostname
               ].join('; ');
             } catch (cookieErr) {
               console.warn('Unable to set fallback session cookie', cookieErr);
             }
           }
 
-          var shouldRedirect =
-            !!payload ||
-            window.location.pathname !== '/spaces';
-
-          if (shouldRedirect) {
-            window.location.replace('/spaces');
-          }
+          window.__spacedeckEmbeddedAuthenticated = true;
         }
 
         function fallbackLogin(reason) {
@@ -151,6 +149,7 @@
             }, postLoginTimeout);
           }
 
+          console.log('Embedded login: exchanging token');
           fetch('/api/sessions/keycloak/token', {
             method: 'POST',
             headers: {
@@ -167,12 +166,17 @@
             })
           })
             .then(function (response) {
+            console.log('Embedded login: probe status', response.status);
+              console.log('Embedded login: exchange status', response.status);
               if (!response.ok) {
                 throw new Error('Embedded login failed with status ' + response.status);
               }
               return response.json();
             })
-            .then(completeLogin)
+            .then(function (payload) {
+              console.log('Embedded login: exchange succeeded');
+              completeLogin(payload);
+            })
             .catch(function (err) {
               console.error('Embedded login error', err);
               fallbackLogin('token exchange failed');
@@ -213,6 +217,9 @@
         }
         if (storedSessionToken) {
           window.api_token = storedSessionToken;
+        if (typeof api_token !== 'undefined') {
+          api_token = storedSessionToken;
+        }
         }
 
         var initialHeaders = {
@@ -222,21 +229,25 @@
           initialHeaders['X-Spacedeck-Auth'] = window.api_token;
         }
 
+        console.log('Embedded login: probing current user');
         fetch('/api/users/current', {
           method: 'GET',
           credentials: 'include',
           headers: initialHeaders
         })
           .then(function (response) {
+            console.log('Embedded login: probe status', response.status);
             if (!response.ok) {
               throw new Error('not_authenticated');
             }
             return response.json();
           })
           .then(function () {
+            console.log('Embedded login: probe succeeded');
             completeLogin(null);
           })
-          .catch(function () {
+          .catch(function (err) {
+            console.warn('Embedded login: probe failed', err);
             startHandshake();
           });
       })();
