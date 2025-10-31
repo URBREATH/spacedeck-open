@@ -190,6 +190,9 @@
           if (window.sessionStorage) {
             storedSessionToken = window.sessionStorage.getItem('sd_session_token');
           }
+          if (!storedSessionToken && window.localStorage) {
+            storedSessionToken = window.localStorage.getItem('sd_session_token');
+          }
         } catch (storageErr) {
           console.warn('Unable to read embedded session token', storageErr);
         }
@@ -198,10 +201,15 @@
         }
 
         console.log('Embedded login: probing current user');
+        var probeHeaders = { 'Accept': 'application/json' }
+        if (window.api_token) {
+          probeHeaders['X-Spacedeck-Auth'] = window.api_token;
+        }
+
         fetch('/api/users/current', {
           method: 'GET',
           credentials: 'include',
-          headers: { 'Accept': 'application/json' }
+          headers: probeHeaders
         })
           .then(function (response) {
             console.log('Embedded login: probe status', response.status);
