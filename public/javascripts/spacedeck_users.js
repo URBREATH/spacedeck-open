@@ -20,14 +20,6 @@ SpacedeckUsers = {
   },
   methods:{
     load_user: function(on_success, on_error) {
-      if (window.__spacedeckEmbeddedLoginPending) {
-        window.__spacedeckEmbeddedLoginQueue = window.__spacedeckEmbeddedLoginQueue || [];
-        window.__spacedeckEmbeddedLoginQueue.push(function() {
-          SpacedeckUsers.methods.load_user.call(this, on_success, on_error);
-        }.bind(this));
-        return;
-      }
-
       this.loading_user = true;
 
       load_current_user(function(user) {
