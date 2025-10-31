@@ -9,6 +9,10 @@ var SpacedeckRoutes = {
     if(!this.router) {
       this.router = new RouteRecognizer();
 
+      var waitingForEmbeddedLogin = function() {
+        return window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated;
+      };
+
       this.router.add([
         {
           path: "/spaces/:id",
@@ -38,9 +42,7 @@ var SpacedeckRoutes = {
           path: "/confirm/:token",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
-                return;
-              }
+              if (waitingForEmbeddedLogin()) return;
               this.redirect_to("/keycloak");
             } else {
               this.confirm_account(params.token);
@@ -94,6 +96,7 @@ var SpacedeckRoutes = {
                 }.bind(this));
               }.bind(this));
             } else {
+              if (waitingForEmbeddedLogin()) return;
               this.redirect_to("/keycloak");
             }
           }.bind(this)
@@ -113,6 +116,7 @@ var SpacedeckRoutes = {
             if (this.logged_in) {
               this.redirect_to("/spaces");
             } else {
+              if (waitingForEmbeddedLogin()) return;
               this.redirect_to("/keycloak");
             }
 
@@ -129,6 +133,7 @@ var SpacedeckRoutes = {
                 this.redirect_to("/keycloak");
               }.bind(this), function(xhr) { console.error(xhr); });
             } else {
+              if (waitingForEmbeddedLogin()) return;
               this.redirect_to("/keycloak");
             }
           }.bind(this)
@@ -140,9 +145,7 @@ var SpacedeckRoutes = {
           path: "/spaces",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
-                return;
-              }
+              if (waitingForEmbeddedLogin()) return;
               window._spacedeck_location_change = true;
               location.href = "/keycloak";
             } else {
@@ -163,9 +166,7 @@ var SpacedeckRoutes = {
           path: "/account",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
-                return;
-              }
+              if (waitingForEmbeddedLogin()) return;
               window._spacedeck_location_change = true;
               location.href = "/keycloak";
             } else {
@@ -181,9 +182,7 @@ var SpacedeckRoutes = {
           path: "/team",
           handler: function(params) {
             if (!this.logged_in) {
-              if (window.__spacedeckEmbeddedLoginPending && !window.__spacedeckEmbeddedAuthenticated) {
-                return;
-              }
+              if (waitingForEmbeddedLogin()) return;
               window._spacedeck_location_change = true;
               location.href = "/keycloak";
             } else {

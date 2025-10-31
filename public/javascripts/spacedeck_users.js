@@ -245,6 +245,9 @@ SpacedeckUsers = {
             if (window.sessionStorage) {
               window.sessionStorage.removeItem("sd_session_token");
             }
+            if (window.localStorage) {
+              window.localStorage.removeItem("sd_session_token");
+            }
           } catch (err) {
             console.warn("Unable to clear embedded session token", err);
           }
