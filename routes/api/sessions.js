@@ -118,18 +118,16 @@ async function createSessionForUser(req, res, user, options = {}) {
   }
 
   const secure = isSecureRequest(req);
+  const hostname = (req.hostname || "").toLowerCase();
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
   const allowCrossSite = options.allowCrossSite === true;
 
   if (allowCrossSite) {
-    if (secure) {
-      cookieOptions.sameSite = "none";
+    cookieOptions.sameSite = "none";
+    if (secure || !isLocalHost) {
       cookieOptions.secure = true;
     } else {
-      console.warn(
-        "Attempted to issue cross-site session cookie over insecure transport; falling back to SameSite=Lax."
-      );
-      cookieOptions.sameSite = "lax";
-      cookieOptions.secure = secure;
+      cookieOptions.secure = false;
     }
   } else {
     cookieOptions.sameSite = "lax";
