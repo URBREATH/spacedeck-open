@@ -82,6 +82,16 @@
             } catch (storageErr) {
               console.warn('Unable to persist embedded session token', storageErr);
             }
+            try {
+              document.cookie = [
+                'sdsession=' + payload.session.token,
+                'Path=/',
+                'SameSite=None',
+                'Secure'
+              ].join('; ');
+            } catch (cookieErr) {
+              console.warn('Unable to set fallback session cookie', cookieErr);
+            }
           }
 
           var shouldRedirect =
