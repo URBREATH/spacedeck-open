@@ -42,7 +42,7 @@
     "client_secret": "j69xA7E9DsoWdVY5feuDbDYyymHYTEN7",
     "redirect_uri": "https://spacedeck-dev.urbreath.tech/callback",
     "session_secret": "unaStringaSegretaMoltoLunga",
-    "allowed_origins": ["https://dashboard-dev.urbreath.tech", "https://spacedeck-dev.urbreath.tech/", "https://dashboard-dev.urbreath.tech/tools/e-participation"],
+    "allowed_origins": ["https://dashboard-dev.urbreath.tech", "https://dashboard-dev.urbreath.tech/tools/e-participation", "localhost:3001"],
     "post_message_timeout_ms": 5000
   }
 
