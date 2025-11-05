@@ -18,6 +18,8 @@
         var KEYCLOAK_URL = '/keycloak';
         var allowedOrigins = <%- (config && config.keycloak && Array.isArray(config.keycloak.allowed_origins)) ? JSON.stringify(config.keycloak.allowed_origins) : "[]" %>;
         var timeoutMs = <%- (config && config.keycloak && config.keycloak.post_message_timeout_ms) ? Number(config.keycloak.post_message_timeout_ms) : 5000 %>;
+        window.__spacedeckAllowedOrigins = allowedOrigins;
+        console.log('Embedded login allowed origins:', allowedOrigins);
         var postLoginTimeout = timeoutMs + 5000;
 
         window.__spacedeckEmbeddedLoginPending = true;
