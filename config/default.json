@@ -47,7 +47,8 @@
     "http://localhost:3001",
     "http://localhost:3001/testIframe.html",
     "https://dashboard-dev.urbreath.tech",
-    "https://spacedeck-dev.urbreath.tech"
+    "https://spacedeck-dev.urbreath.tech",
+    "https://decidim-2-dev.urbreath.tech/"
   ],
   "post_message_timeout_ms": 5000
 }
