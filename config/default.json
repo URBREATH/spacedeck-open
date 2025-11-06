@@ -38,19 +38,21 @@
 
   "keycloak": {
     "issuer": "https://keycloak-dev.urbreath.tech/auth/realms/urbreath-auth",
-    "client_id": "urbreath",
-    "client_secret": "w0Ebfzs3lqjorCWXypaj0wzyLL8TUqLi",
-    "redirect_uri": "https://spacedeck-dev.urbreath.tech/callback",
-    "session_secret": "UnaStringaMoltoLunga",
+    "client_id": "spacedeck",
+    "client_secret": "j69xA7E9DsoWdVY5feuDbDYyymHYTEN7",
+    "redirect_uri": "http://localhost:9666/callback",
+    "session_secret": "unaStringaSegretaMoltoLunga",
     "allowed_origins": [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3001/testIframe.html",
       "https://dashboard-dev.urbreath.tech",
+      "https://dashboard-dev.urbreath.tech/tools/e-participation",
       "https://decidim-dev.urbreath.tech",
       "https://decidim-2-dev.urbreath.tech",
-      "https://spacedeck-dev.urbreath.tech"
+      "https://spacedeck-dev.urbreath.tech",
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3001/testIframe.html"
     ],
     "post_message_timeout_ms": 5000
   }
+
 }
