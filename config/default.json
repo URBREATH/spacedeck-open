@@ -39,9 +39,9 @@
   "keycloak": {
     "issuer": "https://keycloak-dev.urbreath.tech/auth/realms/urbreath-auth",
     "client_id": "urbreath",
-    "client_secret": "…",
+    "client_secret": "w0Ebfzs3lqjorCWXypaj0wzyLL8TUqLi",
     "redirect_uri": "https://spacedeck-dev.urbreath.tech/callback",
-    "session_secret": "…",
+    "session_secret": "UnaStringaMoltoLunga",
     "allowed_origins": [
       "http://localhost:3000",
       "http://localhost:3001",
