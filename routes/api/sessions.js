@@ -115,7 +115,12 @@ async function createSessionForUser(req, res, user, options = {}) {
   let cookieDomain = null;
   if (process.env.NODE_ENV === "production") {
     try {
-      const configuredEndpoint = config.get("endpoint");
+      let configuredEndpoint = null;
+      if (typeof config.has === "function") {
+        configuredEndpoint = config.has("endpoint") ? config.get("endpoint") : null;
+      } else {
+        configuredEndpoint = config.get("endpoint");
+      }
       if (configuredEndpoint) {
         const configuredUrl = new URL(configuredEndpoint);
         if (!isLocalHostname(configuredUrl.hostname)) {

@@ -82,7 +82,16 @@ async function keycloakCallback(req, res) {
 // Funzione per il logout
 async function keycloakLogout(req, res) {
   try {
-    const configuredEndpoint = config.get('endpoint');
+    let configuredEndpoint = null;
+    if (typeof config.has === 'function') {
+      configuredEndpoint = config.has('endpoint') ? config.get('endpoint') : null;
+    } else {
+      try {
+        configuredEndpoint = config.get('endpoint');
+      } catch (err) {
+        configuredEndpoint = null;
+      }
+    }
     let configuredUrl = null;
     let configuredHost = null;
     try {
@@ -109,7 +118,7 @@ async function keycloakLogout(req, res) {
       : null;
 
     // Rimuoviamo la sessione utente e il cookie
-    const token = req.cookies['sdsession'];
+    const token = req.cookies ? req.cookies['sdsession'] : null;
     if (token) {
       const session = await db.Session.findOne({ where: { token } });
       if (session) await session.destroy();

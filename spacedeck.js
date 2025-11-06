@@ -33,6 +33,8 @@ app.use(session({
   cookie: { secure: false } // in dev su http
 }));
 
+app.use(cookieParser());
+
 // -------------------- POPOLA req.user --------------------
 app.use(async (req, res, next) => {
   if (req.session?.userId) {
@@ -133,7 +135,6 @@ if (isProduction) {
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: false, limit: '50mb' }));
-app.use(cookieParser());
 app.disable('x-powered-by');
 
 app.use(require("./middlewares/session"));
