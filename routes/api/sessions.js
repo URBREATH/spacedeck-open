@@ -96,7 +96,9 @@ async function createSessionForUser(req, res, user, options = {}) {
 
   if (req.session) {
     req.session.userId = user._id;
-    req.session.idToken = Object.prototype.hasOwnProperty.call(options, "idToken") ? options.idToken : null;
+    if (Object.prototype.hasOwnProperty.call(options, "idToken")) {
+      req.session.idToken = options.idToken || null;
+    }
     if (typeof req.session.save === "function") {
       await new Promise((resolve, reject) => {
         req.session.save((err) => (err ? reject(err) : resolve()));
@@ -104,13 +106,30 @@ async function createSessionForUser(req, res, user, options = {}) {
     }
   }
 
-  let domain = req.hostname || req.headers.hostname || "localhost";
+  const isLocalHostname = (host) => {
+    if (!host) return true;
+    const normalized = host.toLowerCase();
+    return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "[::1]";
+  };
+
+  let cookieDomain = null;
   if (process.env.NODE_ENV === "production") {
     try {
-      domain = new URL(config.get("endpoint")).hostname;
+      const configuredEndpoint = config.get("endpoint");
+      if (configuredEndpoint) {
+        const configuredUrl = new URL(configuredEndpoint);
+        if (!isLocalHostname(configuredUrl.hostname)) {
+          cookieDomain = configuredUrl.hostname;
+        }
+      }
     } catch (err) {
       console.warn("Impossibile determinare il dominio dalla config.endpoint:", err?.message || err);
     }
+  }
+
+  const requestHost = req.hostname || (req.headers.host ? req.headers.host.split(":")[0] : null);
+  if (!cookieDomain && requestHost && !isLocalHostname(requestHost)) {
+    cookieDomain = requestHost;
   }
 
   const cookieOptions = {
@@ -118,18 +137,18 @@ async function createSessionForUser(req, res, user, options = {}) {
     path: "/",
   };
 
-  if (domain && domain !== "localhost") {
-    cookieOptions.domain = domain;
+  if (cookieDomain) {
+    cookieOptions.domain = cookieDomain;
   }
 
   const secure = isSecureRequest(req);
   const hostname = (req.hostname || "").toLowerCase();
-  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  const isLocalHostRequest = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
   const allowCrossSite = options.allowCrossSite === true;
 
   if (allowCrossSite) {
     cookieOptions.sameSite = "none";
-    if (secure || !isLocalHost) {
+    if (secure || !isLocalHostRequest) {
       cookieOptions.secure = true;
     } else {
       cookieOptions.secure = false;

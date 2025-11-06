@@ -83,13 +83,30 @@ async function keycloakCallback(req, res) {
 async function keycloakLogout(req, res) {
   try {
     const configuredEndpoint = config.get('endpoint');
-    const configuredHost = (() => {
-      try {
-        return new URL(configuredEndpoint).hostname;
-      } catch (err) {
-        return null;
+    let configuredUrl = null;
+    let configuredHost = null;
+    try {
+      if (configuredEndpoint) {
+        configuredUrl = new URL(configuredEndpoint);
+        configuredHost = configuredUrl.hostname;
       }
-    })();
+    } catch (err) {
+      console.warn("Endpoint configurato non valido per il logout Keycloak:", configuredEndpoint, err?.message || err);
+    }
+
+    const isLocalHost = (host) => {
+      if (!host) return true;
+      const normalized = host.toLowerCase();
+      return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '[::1]';
+    };
+
+    const forwardedProtoHeader = req.headers['x-forwarded-proto'];
+    const forwardedProto = forwardedProtoHeader ? forwardedProtoHeader.split(',')[0].trim().toLowerCase() : null;
+    const requestHostHeader = req.get('host');
+    const requestHost = req.hostname || (requestHostHeader ? requestHostHeader.split(':')[0] : null);
+    const requestOrigin = requestHostHeader
+      ? `${forwardedProto || req.protocol}://${requestHostHeader}`
+      : null;
 
     // Rimuoviamo la sessione utente e il cookie
     const token = req.cookies['sdsession'];
@@ -99,14 +116,17 @@ async function keycloakLogout(req, res) {
     }
 
     const idTokenHint = req.session?.idToken || null;
-    const requestHost = req.hostname || (req.headers.host ? req.headers.host.split(':')[0] : null);
-    const domain = process.env.NODE_ENV === "production"
-      ? configuredHost
-      : (requestHost || configuredHost);
+
+    const effectiveDomain = (() => {
+      if (configuredHost && !isLocalHost(configuredHost)) {
+        return configuredHost;
+      }
+      return requestHost;
+    })();
 
     const clearCookieOptions = { path: '/' };
-    if (domain && domain !== 'localhost') {
-      clearCookieOptions.domain = domain;
+    if (effectiveDomain && !isLocalHost(effectiveDomain)) {
+      clearCookieOptions.domain = effectiveDomain;
     }
     res.clearCookie('sdsession', clearCookieOptions);
 
@@ -123,7 +143,15 @@ async function keycloakLogout(req, res) {
 
     // Opzionale: Se Keycloak ha un endpoint per il logout, reindirizzare
     const client = await initKeycloakClient();
-    const fallbackRedirect = configuredEndpoint || `${req.protocol}://${req.get('host')}`;
+    const fallbackRedirect = (() => {
+      if (configuredUrl && (!isLocalHost(configuredHost) || (requestHost && configuredHost === requestHost))) {
+        return configuredUrl.toString();
+      }
+      if (requestOrigin) return requestOrigin;
+      if (configuredEndpoint) return configuredEndpoint;
+      return '/';
+    })();
+
     let logoutUrl = fallbackRedirect;
 
     if (client) {
