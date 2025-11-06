@@ -29,6 +29,24 @@
         var settled = false;
         var handshakeStarted = false;
         var handshakeTimer = null;
+        var listenerRegistered = false;
+        var currentUser = null;
+        var currentUserEmail = null;
+
+        function setCurrentUser(user) {
+          if (user && typeof user === 'object') {
+            currentUser = user;
+            currentUserEmail = (user.email && typeof user.email === 'string') ? user.email.toLowerCase() : null;
+          } else {
+            currentUser = null;
+            currentUserEmail = null;
+          }
+
+          window.__spacedeckCurrentUser = currentUser;
+          window.__spacedeckCurrentUserEmail = currentUserEmail;
+        }
+
+        setCurrentUser(null);
 
         function flushQueue() {
           var queue = window.__spacedeckEmbeddedLoginQueue;
@@ -57,7 +75,6 @@
             window.clearTimeout(handshakeTimer);
             handshakeTimer = null;
           }
-          window.removeEventListener('message', handleMessage);
         }
 
         function persistToken(token) {
@@ -103,6 +120,7 @@
           window.api_token = null;
           if (typeof api_token !== 'undefined') { api_token = null; }
           window.__spacedeckEmbeddedAuthenticated = false;
+          setCurrentUser(null);
         }
 
         function completeLogin(payload) {
@@ -112,6 +130,10 @@
 
           if (payload && payload.session && payload.session.token) {
             persistToken(payload.session.token);
+          }
+
+          if (payload && payload.user) {
+            setCurrentUser(payload.user);
           }
 
           window.__spacedeckEmbeddedAuthenticated = true;
@@ -134,6 +156,13 @@
 
         function normalizeToken(data) {
           return data && (data.accessToken || data.access_token || null);
+        }
+
+        function resolveIncomingEmail(data) {
+          if (!data || typeof data !== 'object') return null;
+          if (typeof data.email === 'string') return data.email.toLowerCase();
+          if (data.profile && typeof data.profile.email === 'string') return data.profile.email.toLowerCase();
+          return null;
         }
 
         function handleMessage(event) {
@@ -160,41 +189,69 @@
             }, postLoginTimeout);
           }
 
-          console.log('Embedded login: exchanging token');
-          fetch('/api/sessions/keycloak/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              accessToken: accessToken,
-              refreshToken: data.refreshToken || data.refresh_token,
-              language: data.language || data.locale,
-              email: data.email,
-              name: data.name || data.fullName || data.preferred_username,
-              profile: data.profile || null
+          var incomingEmail = resolveIncomingEmail(data);
+          settled = false;
+
+          function performTokenExchange() {
+            console.log('Embedded login: exchanging token');
+            fetch('/api/sessions/keycloak/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                accessToken: accessToken,
+                refreshToken: data.refreshToken || data.refresh_token,
+                language: data.language || data.locale,
+                email: data.email,
+                name: data.name || data.fullName || data.preferred_username,
+                profile: data.profile || null
+              })
             })
-          })
-            .then(function (response) {
-              console.log('Embedded login: exchange status', response.status);
-              if (!response.ok) throw new Error('exchange_failed_' + response.status);
-              return response.json();
-            })
-            .then(function (payload) {
-              console.log('Embedded login: exchange succeeded');
-              completeLogin(payload);
-            })
-            .catch(function (err) {
-              console.error('Embedded login error', err);
-              clearPersistedToken();
-              fallback('token exchange failed');
+              .then(function (response) {
+                console.log('Embedded login: exchange status', response.status);
+                if (!response.ok) throw new Error('exchange_failed_' + response.status);
+                return response.json();
+              })
+              .then(function (payload) {
+                console.log('Embedded login: exchange succeeded');
+                completeLogin(payload);
+              })
+              .catch(function (err) {
+                console.error('Embedded login error', err);
+                clearPersistedToken();
+                fallback('token exchange failed');
+              });
+          }
+
+          if (currentUserEmail && incomingEmail && incomingEmail !== currentUserEmail) {
+            console.log('Embedded login: detected user change from', currentUserEmail, 'to', incomingEmail);
+            window.__spacedeckEmbeddedAuthenticated = false;
+            window.__spacedeckEmbeddedLoginPending = true;
+            clearPersistedToken();
+
+            fetch('/api/sessions/current', {
+              method: 'DELETE',
+              credentials: 'include'
+            }).catch(function (err) {
+              console.warn('Embedded login: failed to delete session before switch', err);
+            }).finally(function () {
+              setCurrentUser(null);
+              settled = false;
+              performTokenExchange();
             });
+          } else {
+            performTokenExchange();
+          }
         }
 
         function startHandshake() {
           if (handshakeStarted || settled) return;
           handshakeStarted = true;
 
-          window.addEventListener('message', handleMessage);
+          if (!listenerRegistered) {
+            window.addEventListener('message', handleMessage);
+            listenerRegistered = true;
+          }
           handshakeTimer = window.setTimeout(function () {
             fallback('timeout waiting token');
           }, Math.max(timeoutMs, 3000));
@@ -244,9 +301,10 @@
             if (!response.ok) throw new Error('not_authenticated');
             return response.json();
           })
-          .then(function () {
+          .then(function (user) {
             console.log('Embedded login: probe succeeded');
-            completeLogin(null);
+            if (user) setCurrentUser(user);
+            completeLogin({ user: user });
           })
           .catch(function (err) {
             console.warn('Embedded login: probe failed', err);
