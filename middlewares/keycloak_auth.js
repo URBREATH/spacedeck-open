@@ -24,7 +24,7 @@ async function keycloakCallback(req, res) {
     const client = await initKeycloakClient();
     const params = client.callbackParams(req);
     const tokenSet = await client.callback(client.redirect_uris[0], params, {
-      code_verifier: req.session.codeVerifier
+      code_verifier: req.session?.codeVerifier
     });
 
     const idToken = tokenSet.claims();
@@ -61,8 +61,15 @@ async function keycloakCallback(req, res) {
       created_at: new Date()
     });
 
-    req.session.userId = user._id;
-    await req.session.save();
+    if (req.session) {
+      req.session.userId = user._id;
+      req.session.idToken = tokenSet.id_token;
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => (err ? reject(err) : resolve()));
+      }).catch((err) => {
+        console.warn("Impossibile salvare la sessione dopo il login Keycloak:", err);
+      });
+    }
 
     res.cookie('sdsession', token, { httpOnly: true });
     res.redirect('/spaces');
@@ -75,6 +82,15 @@ async function keycloakCallback(req, res) {
 // Funzione per il logout
 async function keycloakLogout(req, res) {
   try {
+    const configuredEndpoint = config.get('endpoint');
+    const configuredHost = (() => {
+      try {
+        return new URL(configuredEndpoint).hostname;
+      } catch (err) {
+        return null;
+      }
+    })();
+
     // Rimuoviamo la sessione utente e il cookie
     const token = req.cookies['sdsession'];
     if (token) {
@@ -82,15 +98,54 @@ async function keycloakLogout(req, res) {
       if (session) await session.destroy();
     }
 
+    const idTokenHint = req.session?.idToken || null;
+    const requestHost = req.hostname || (req.headers.host ? req.headers.host.split(':')[0] : null);
     const domain = process.env.NODE_ENV === "production"
-      ? new URL(config.get('endpoint')).hostname
-      : req.headers.hostname;
+      ? configuredHost
+      : (requestHost || configuredHost);
 
-    res.clearCookie('sdsession', { domain });
+    const clearCookieOptions = { path: '/' };
+    if (domain && domain !== 'localhost') {
+      clearCookieOptions.domain = domain;
+    }
+    res.clearCookie('sdsession', clearCookieOptions);
+
+    if (req.session) {
+      await new Promise((resolve) => {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('Errore durante la distruzione della sessione express:', err);
+          }
+          resolve();
+        });
+      });
+    }
 
     // Opzionale: Se Keycloak ha un endpoint per il logout, reindirizzare
     const client = await initKeycloakClient();
-    const logoutUrl = client.endpoints.logout;
+    const fallbackRedirect = configuredEndpoint || `${req.protocol}://${req.get('host')}`;
+    let logoutUrl = fallbackRedirect;
+
+    if (client) {
+      const { issuer } = client;
+      if (typeof client.endSessionUrl === 'function') {
+        const params = {
+          post_logout_redirect_uri: fallbackRedirect
+        };
+        if (idTokenHint) {
+          params.id_token_hint = idTokenHint;
+        }
+        logoutUrl = client.endSessionUrl(params);
+      } else if (issuer?.metadata?.end_session_endpoint) {
+        const endSessionUrl = new URL(issuer.metadata.end_session_endpoint);
+        endSessionUrl.searchParams.set('post_logout_redirect_uri', fallbackRedirect);
+        if (idTokenHint) {
+          endSessionUrl.searchParams.set('id_token_hint', idTokenHint);
+        }
+        logoutUrl = endSessionUrl.toString();
+      }
+    }
+
     res.redirect(logoutUrl || '/');
 
   } catch (err) {

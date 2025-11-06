@@ -20,7 +20,7 @@ const express = require('express');
 const session = require('express-session');
 const serveStatic = require('serve-static');
 
-const { initKeycloakClient, keycloakCallback } = require('./middlewares/keycloak_auth');
+const { initKeycloakClient, keycloakCallback, keycloakLogout } = require('./middlewares/keycloak_auth');
 
 const app = express();
 const isProduction = app.get('env') === 'production';
@@ -106,6 +106,7 @@ app.post('/keycloak', async (req, res) => {
 
 // callback Keycloak
 app.get('/callback', keycloakCallback);
+app.get('/keycloak/logout', keycloakLogout);
 
 // -------------------- LOGGER --------------------
 app.use(logger(isProduction ? 'combined' : 'dev'));

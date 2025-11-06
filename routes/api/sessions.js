@@ -96,6 +96,7 @@ async function createSessionForUser(req, res, user, options = {}) {
 
   if (req.session) {
     req.session.userId = user._id;
+    req.session.idToken = Object.prototype.hasOwnProperty.call(options, "idToken") ? options.idToken : null;
     if (typeof req.session.save === "function") {
       await new Promise((resolve, reject) => {
         req.session.save((err) => (err ? reject(err) : resolve()));
@@ -103,10 +104,14 @@ async function createSessionForUser(req, res, user, options = {}) {
     }
   }
 
-  const domain =
-    process.env.NODE_ENV === "production"
-      ? new URL(config.get("endpoint")).hostname
-      : req.hostname || req.headers.hostname || "localhost";
+  let domain = req.hostname || req.headers.hostname || "localhost";
+  if (process.env.NODE_ENV === "production") {
+    try {
+      domain = new URL(config.get("endpoint")).hostname;
+    } catch (err) {
+      console.warn("Impossibile determinare il dominio dalla config.endpoint:", err?.message || err);
+    }
+  }
 
   const cookieOptions = {
     httpOnly: true,
@@ -249,6 +254,8 @@ router.post("/keycloak/token", async function (req, res) {
       email: bodyEmail,
       name: bodyName,
       profile,
+      idToken: bodyIdToken,
+      id_token: legacyIdToken,
     } = req.body || {};
 
     if (!accessToken) {
@@ -289,12 +296,19 @@ router.post("/keycloak/token", async function (req, res) {
 
     console.log('[Keycloak Token] resolved user:', user ? { id: user._id, email: user.email, home_folder_id: user.home_folder_id } : null);
 
+    const resolvedIdToken = bodyIdToken || legacyIdToken || null;
+
     const payload = await createSessionForUser(req, res, user, {
       allowCrossSite: true,
+      idToken: resolvedIdToken,
     });
 
     if (refreshToken) {
       payload.session.refreshToken = refreshToken;
+    }
+
+    if (resolvedIdToken) {
+      payload.session.idToken = resolvedIdToken;
     }
 
     if (profile) {

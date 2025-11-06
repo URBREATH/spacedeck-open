@@ -254,7 +254,7 @@ SpacedeckUsers = {
         }
         this.user = {};
         this.active_content_type = "login";
-        this.redirect_to("/");
+        this.redirect_to("/keycloak/logout");
 
       }.bind(this));
     },
