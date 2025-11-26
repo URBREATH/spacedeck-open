@@ -123,6 +123,36 @@
           setCurrentUser(null);
         }
 
+        function readPersistedToken() {
+          if (window.api_token) {
+            return window.api_token;
+          }
+
+          try {
+            if (window.sessionStorage) {
+              var sessionToken = window.sessionStorage.getItem('sd_session_token');
+              if (sessionToken) return sessionToken;
+            }
+            if (window.localStorage) {
+              var localToken = window.localStorage.getItem('sd_session_token');
+              if (localToken) return localToken;
+            }
+          } catch (storageErr) {
+            console.warn('Embedded login: unable to read cached token', storageErr);
+          }
+
+          try {
+            var cookieMatch = document.cookie.match(/(?:^|; )sdsession=([^;]+)/);
+            if (cookieMatch && cookieMatch[1]) {
+              return decodeURIComponent(cookieMatch[1]);
+            }
+          } catch (cookieErr) {
+            console.warn('Embedded login: unable to read session cookie', cookieErr);
+          }
+
+          return null;
+        }
+
         function completeLogin(payload) {
           if (settled) return;
           settled = true;
@@ -227,14 +257,20 @@
             console.log('Embedded login: detected user change from', currentUserEmail, 'to', incomingEmail);
             window.__spacedeckEmbeddedAuthenticated = false;
             window.__spacedeckEmbeddedLoginPending = true;
-            clearPersistedToken();
+            var previousToken = readPersistedToken();
+            var logoutHeaders = {};
+            if (previousToken) {
+              logoutHeaders['X-Spacedeck-Auth'] = previousToken;
+            }
 
             fetch('/api/sessions/current', {
               method: 'DELETE',
-              credentials: 'include'
+              credentials: 'include',
+              headers: logoutHeaders
             }).catch(function (err) {
               console.warn('Embedded login: failed to delete session before switch', err);
             }).finally(function () {
+              clearPersistedToken();
               setCurrentUser(null);
               settled = false;
               performTokenExchange();
