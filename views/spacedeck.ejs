@@ -185,7 +185,8 @@
         }
 
         function normalizeToken(data) {
-          return data && (data.accessToken || data.access_token || null);
+          if (!data || typeof data !== 'object') return null;
+          return data.accessToken || data.access_token || data.nextToken || null;
         }
 
         function resolveIncomingEmail(data) {
@@ -203,11 +204,12 @@
             return;
           }
 
+          var isForceLogout = data.type === 'spacedeck-force-logout';
           var isEmbedded = data.embedded === true || data.type === 'spacedeck-embedded-auth' || data.type === 'spacedeck-token';
-          if (!isEmbedded) return;
+          if (!isEmbedded && !isForceLogout) return;
 
           var accessToken = normalizeToken(data);
-          if (!accessToken) {
+          if (!accessToken && !isForceLogout) {
             console.warn('postMessage payload missing access token');
             return;
           }
@@ -221,15 +223,22 @@
 
           var incomingEmail = resolveIncomingEmail(data);
           settled = false;
+          var shouldLogout = isForceLogout || (currentUserEmail && incomingEmail && incomingEmail !== currentUserEmail);
 
-          function performTokenExchange() {
+          function performTokenExchange(tokenOverride) {
+            var tokenToUse = tokenOverride || accessToken;
+            if (!tokenToUse) {
+              console.warn('Embedded login: missing access token for exchange');
+              fallback('missing_access_token');
+              return;
+            }
             console.log('Embedded login: exchanging token');
             fetch('/api/sessions/keycloak/token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
               body: JSON.stringify({
-                accessToken: accessToken,
+                accessToken: tokenToUse,
                 refreshToken: data.refreshToken || data.refresh_token,
                 language: data.language || data.locale,
                 email: data.email,
@@ -253,8 +262,8 @@
               });
           }
 
-          if (currentUserEmail && incomingEmail && incomingEmail !== currentUserEmail) {
-            console.log('Embedded login: detected user change from', currentUserEmail, 'to', incomingEmail);
+          if (shouldLogout) {
+            console.log('Embedded login: initiating logout before token exchange', isForceLogout ? '(force logout)' : '(user changed)');
             window.__spacedeckEmbeddedAuthenticated = false;
             window.__spacedeckEmbeddedLoginPending = true;
             var previousToken = readPersistedToken();
@@ -273,7 +282,13 @@
               clearPersistedToken();
               setCurrentUser(null);
               settled = false;
-              performTokenExchange();
+              if (accessToken) {
+                performTokenExchange(accessToken);
+              } else if (isForceLogout) {
+                handshakeStarted = false;
+                // No next token provided → restart handshake to request a new one
+                startHandshake();
+              }
             });
           } else {
             performTokenExchange();
