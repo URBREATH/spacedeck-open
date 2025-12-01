@@ -241,9 +241,14 @@
             }, postLoginTimeout);
           }
 
+          var persistedToken = readPersistedToken();
           var incomingEmail = resolveIncomingEmail(data, accessToken);
           settled = false;
           var shouldLogout = isForceLogout || (currentUserEmail && incomingEmail && incomingEmail !== currentUserEmail);
+
+          if (!shouldLogout && accessToken && persistedToken && accessToken !== persistedToken) {
+            shouldLogout = true;
+          }
 
           function performTokenExchange(tokenOverride) {
             var tokenToUse = tokenOverride || accessToken;
