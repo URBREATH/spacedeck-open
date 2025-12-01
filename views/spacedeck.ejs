@@ -57,6 +57,11 @@
 
         setCurrentUser(null);
 
+        if (!listenerRegistered) {
+          window.addEventListener('message', handleMessage);
+          listenerRegistered = true;
+        }
+
         function flushQueue() {
           var queue = window.__spacedeckEmbeddedLoginQueue;
           if (!queue || !queue.length) return;
