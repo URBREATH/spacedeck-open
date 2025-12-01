@@ -39,6 +39,7 @@ var SpacedeckSpaces = {
     share_base_url_enc: encodeURIComponent(location.origin+"/spaces/"),
     social_bar: true,
     can_add_comment: false,
+    embedded_mode: false,
 
     space_info_section: "access",
     editors_section: "list",
@@ -72,6 +73,22 @@ var SpacedeckSpaces = {
       load_spaces_search(query, function(spaces) {
         this.active_profile_spaces = spaces;
       }.bind(this));
+    },
+    select_space_for_parent: function(item) {
+      if (!item || !window || !window.parent || window.parent === window) return;
+      try {
+        var payload = {
+          type: "spacedeck-select-space",
+          spaceId: item._id,
+          spaceType: item.space_type,
+          url: this.share_base_url + item._id,
+          name: item.name || null
+        };
+        window.parent.postMessage(payload, "*");
+        this.close_dropdown();
+      } catch (err) {
+        console.warn("Unable to postMessage selected space to parent", err);
+      }
     },
     guest_logout: function() {
       if ("localStorage" in window && localStorage) {
@@ -110,6 +127,7 @@ var SpacedeckSpaces = {
       }
       
       this.embedded = !!(get_query_param("embedded"));
+      this.embedded_mode = this.embedded || (typeof window !== "undefined" && window.self !== window.top);
 
       var userReady = function() {
         this.close_dropdown();

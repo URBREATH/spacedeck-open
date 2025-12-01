@@ -159,6 +159,7 @@
                 <li v-on:click="download_space_as_pdf(item)"><span><span class="icon icon-sm icon-clipboard"></span><%=  __('download_as_pdf') %></span></li>
                 <li v-on:click="rename_space(item)"><span><span class="icon icon-sm icon-tag"></span><%=  __('rename') %></span></li>
                 <li v-on:click="activate_access(item)"><span><span class="icon icon-sm icon-share"></span><%=  __('share') %></span></li>
+                <li v-if="embedded_mode" v-on:click="select_space_for_parent(item)"><span><span class="icon icon-sm icon-check"></span>Select</span></li>
                 <li v-on:click="delete_space(item)"><span><span class="icon icon-sm icon-trash"></span><%=  __('delete') %></span></li>
               </ul>
             </div>
