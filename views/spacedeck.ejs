@@ -75,6 +75,7 @@
 
         function originAllowed(origin) {
           if (!origin) return false;
+          if (parentOrigin && origin === parentOrigin) return true;
           if (!allowedOrigins || allowedOrigins.length === 0) return true;
           return allowedOrigins.indexOf(origin) !== -1;
         }
