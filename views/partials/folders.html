@@ -150,17 +150,17 @@
 
         <div class="item-meta" >
           <span class="item-title">{{item.name}}</span>
-          <div class="pull-right dropdown center light" v-if="active_space_role=='admin' || embedded_mode" v-bind:class="{open:(active_dropdown=='space_'+item._id || active_dropdown=='space_share_'+item._id)}">
+          <div class="pull-right dropdown center light" v-bind:class="{open:(active_dropdown=='space_'+item._id || active_dropdown=='space_share_'+item._id)}">
             <button type="button" class="btn btn-transparent btn-dropdown no-min-w no-p" data-toggle="dropdown" v-on:click="activate_dropdown('space_'+item._id)">
             </button>
 
             <div class="dropdown-menu" role="menu">
               <ul class="select-list">
-                <li v-if="active_space_role=='admin'" v-on:click="download_space_as_pdf(item)"><span><span class="icon icon-sm icon-clipboard"></span><%=  __('download_as_pdf') %></span></li>
-                <li v-if="active_space_role=='admin'" v-on:click="rename_space(item)"><span><span class="icon icon-sm icon-tag"></span><%=  __('rename') %></span></li>
-                <li v-if="active_space_role=='admin'" v-on:click="activate_access(item)"><span><span class="icon icon-sm icon-share"></span><%=  __('share') %></span></li>
-                <li v-if="embedded_mode" v-on:click="select_space_for_parent(item)"><span><span class="icon icon-sm icon-check"></span>Select</span></li>
-                <li v-if="active_space_role=='admin'" v-on:click="delete_space(item)"><span><span class="icon icon-sm icon-trash"></span><%=  __('delete') %></span></li>
+                <li v-on:click="download_space_as_pdf(item)"><span><span class="icon icon-sm icon-clipboard"></span><%=  __('download_as_pdf') %></span></li>
+                <li v-on:click="rename_space(item)"><span><span class="icon icon-sm icon-tag"></span><%=  __('rename') %></span></li>
+                <li v-on:click="activate_access(item)"><span><span class="icon icon-sm icon-share"></span><%=  __('share') %></span></li>
+                <li v-on:click="select_space_for_parent(item)"><span><span class="icon icon-sm icon-check"></span>Select</span></li>
+                <li v-on:click="delete_space(item)"><span><span class="icon icon-sm icon-trash"></span><%=  __('delete') %></span></li>
               </ul>
             </div>
           </div>
