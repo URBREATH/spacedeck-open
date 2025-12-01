@@ -32,6 +32,16 @@
         var listenerRegistered = false;
         var currentUser = null;
         var currentUserEmail = null;
+        var parentOrigin = (function () {
+          try {
+            if (document.referrer) {
+              return new URL(document.referrer).origin;
+            }
+          } catch (err) {
+            console.warn('Embedded login: unable to parse parent origin from referrer', err);
+          }
+          return null;
+        })();
 
         function setCurrentUser(user) {
           if (user && typeof user === 'object') {
@@ -334,13 +344,22 @@
 
           try {
             var handshakeMessage = { type: 'spacedeck-auth-request' };
-            if (allowedOrigins && allowedOrigins.length) {
-              allowedOrigins.forEach(function (origin) {
-                window.parent.postMessage(handshakeMessage, origin);
-              });
+            var targets = [];
+            if (parentOrigin && (!allowedOrigins || !allowedOrigins.length || allowedOrigins.indexOf(parentOrigin) !== -1)) {
+              targets = [parentOrigin];
+            } else if (allowedOrigins && allowedOrigins.length) {
+              targets = allowedOrigins;
             } else {
-              window.parent.postMessage(handshakeMessage, '*');
+              targets = ['*'];
             }
+
+            targets.forEach(function (origin) {
+              try {
+                window.parent.postMessage(handshakeMessage, origin);
+              } catch (err) {
+                console.warn('Embedded login: unable to notify parent frame for embedded auth with origin', origin, err);
+              }
+            });
           } catch (err) {
             console.warn('Unable to notify parent frame for embedded auth:', err);
           }
