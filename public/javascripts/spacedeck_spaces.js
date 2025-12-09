@@ -79,23 +79,45 @@ var SpacedeckSpaces = {
         var slugPart = (space.edit_slug && space.edit_slug.length) ? "-" + space.edit_slug : "";
         return this.share_base + "/s/" + space.edit_hash + slugPart;
       }
-      return this.share_base_url + space._id;
+      return this.share_base + "/s/" + space._id;
     },
     select_space_for_parent: function(item) {
       if (!item || !window || !window.parent || window.parent === window) return;
-      try {
+      var sendPayload = function(space) {
         var payload = {
           type: "spacedeck-select-space",
-          spaceId: item._id,
-          spaceType: item.space_type,
-          url: this.public_share_url(item),
-          name: item.name || null
+          spaceId: space._id || item._id,
+          spaceType: space.space_type || item.space_type,
+          url: this.public_share_url(space || item),
+          name: space.name || item.name || null
         };
         window.parent.postMessage(payload, "*");
         this.close_dropdown();
-      } catch (err) {
-        console.warn("Unable to postMessage selected space to parent", err);
+      }.bind(this);
+
+      if (item.edit_hash) {
+        try {
+          sendPayload(item);
+        } catch (err) {
+          console.warn("Unable to postMessage selected space to parent", err);
+        }
+        return;
       }
+
+      get_resource("/spaces/" + item._id, function(space) {
+        try {
+          sendPayload(space || item);
+        } catch (err) {
+          console.warn("Unable to postMessage selected space to parent", err);
+        }
+      }.bind(this), function(err) {
+        console.warn("Unable to fetch space info for share url", err);
+        try {
+          sendPayload(item);
+        } catch (innerErr) {
+          console.warn("Unable to postMessage selected space to parent", innerErr);
+        }
+      }.bind(this));
     },
     guest_logout: function() {
       if ("localStorage" in window && localStorage) {
