@@ -91,6 +91,9 @@ var SpacedeckSpaces = {
           url: this.public_share_url(space || item),
           name: space.name || item.name || null
         };
+        try {
+          console.log("[spacedeck] select_space_for_parent payload", payload);
+        } catch (e) {}
         window.parent.postMessage(payload, "*");
         this.close_dropdown();
       }.bind(this);
