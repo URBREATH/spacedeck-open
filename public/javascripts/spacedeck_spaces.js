@@ -111,7 +111,40 @@ var SpacedeckSpaces = {
         return;
       }
 
-      console.warn("Select space: missing edit_hash on item, nothing sent", item);
+        console.warn("Select space: missing edit_hash on item, nothing sent", item);
+    },
+    use_access_link_in_decidim: function() {
+      var space = this.access_settings_space;
+      if (!space || !window || !window.parent || window.parent === window) return;
+
+      var publicUrl = this.public_share_url(space);
+      if (!publicUrl) {
+        console.warn("No public URL available for Decidim payload", space);
+        return;
+      }
+
+      var payload = {
+        type: "spacedeck-select-space",
+        spaceId: space._id,
+        spaceType: space.space_type || "space",
+        url: publicUrl,
+        publicUrl: publicUrl,
+        name: space.name || null
+      };
+
+      try {
+        console.log("[spacedeck] use_access_link_in_decidim payload", payload);
+      } catch (e) {}
+
+      try {
+        window.parent.postMessage(payload, "*");
+      } catch (err) {
+        console.warn("Unable to postMessage access link to parent", err);
+      }
+
+      try {
+        this.close_modal();
+      } catch (e) {}
     },
     guest_logout: function() {
       if ("localStorage" in window && localStorage) {

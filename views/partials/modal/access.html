@@ -29,8 +29,8 @@
               <input id="editorurl2" type="text" class="form-control input input-lg"  v-bind:value="share_base + '/s/' + access_settings_space.edit_hash + (access_settings_space.edit_slug ? '-' : '') + access_settings_space.edit_slug"/>
 
               <span class="input-group-btn">
-                <span id="org-add-member" class="btn btn-lg btn-primary clipboard-btn" data-clipboard-target="#editorurl2" v-clipboard>
-                  <%=__("copy")%>
+                <span class="btn btn-lg btn-primary" v-on:click="use_access_link_in_decidim">
+                  Use in Decidim
                 </span>
               </span>
             </div>
