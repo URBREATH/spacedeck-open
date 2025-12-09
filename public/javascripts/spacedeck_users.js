@@ -20,6 +20,17 @@ SpacedeckUsers = {
   },
   methods:{
     load_user: function(on_success, on_error) {
+      if (window.__spacedeckSkipAuthProbe) {
+        this.user = null;
+        this.logged_in = false;
+        this.loading_user = false;
+
+        if (on_success) {
+          on_success(null);
+        }
+        return;
+      }
+
       if (window.__spacedeckEmbeddedLoginPending) {
         window.__spacedeckEmbeddedLoginQueue = window.__spacedeckEmbeddedLoginQueue || [];
         window.__spacedeckEmbeddedLoginQueue.push(function() {

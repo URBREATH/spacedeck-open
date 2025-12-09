@@ -21,6 +21,12 @@
         console.log('Embedded login allowed origins:', allowedOrigins);
         var postLoginTimeout = timeoutMs + 5000;
 
+        var searchParams = new URLSearchParams(window.location.search || '');
+        var hasSpaceAuthParam = searchParams.has('spaceAuth');
+        var embeddedParam = searchParams.get('embedded');
+        var skipAuthProbe = hasSpaceAuthParam || embeddedParam === '1' || embeddedParam === 'true';
+        window.__spacedeckSkipAuthProbe = skipAuthProbe;
+
         window.__spacedeckEmbeddedLoginPending = true;
         window.__spacedeckEmbeddedAuthenticated = false;
         window.__spacedeckEmbeddedLoginQueue = window.__spacedeckEmbeddedLoginQueue || [];
@@ -383,6 +389,12 @@
         }
         if (storedSessionToken) {
           persistToken(storedSessionToken);
+        }
+
+        if (window.__spacedeckSkipAuthProbe) {
+          console.log('Embedded login: skipping probe/handshake for public embed');
+          markSettled();
+          return;
         }
 
         console.log('Embedded login: probing current user');
