@@ -75,20 +75,24 @@ var SpacedeckSpaces = {
       }.bind(this));
     },
     public_share_url: function(space) {
-      if (space && space.edit_hash) {
-        var slugPart = (space.edit_slug && space.edit_slug.length) ? "-" + space.edit_slug : "";
-        return this.share_base + "/s/" + space.edit_hash + slugPart;
-      }
-      return this.share_base + "/s/" + space._id;
+      if (!space || !space.edit_hash) return null;
+      var slugPart = (space.edit_slug && space.edit_slug.length) ? "-" + space.edit_slug : "";
+      return this.share_base + "/s/" + space.edit_hash + slugPart;
     },
     select_space_for_parent: function(item) {
       if (!item || !window || !window.parent || window.parent === window) return;
       var sendPayload = function(space) {
+        var publicUrl = this.public_share_url(space || item);
+        if (!publicUrl) {
+          console.warn("No public URL available for selected space", space || item);
+          return;
+        }
         var payload = {
           type: "spacedeck-select-space",
           spaceId: space._id || item._id,
           spaceType: space.space_type || item.space_type,
-          url: this.public_share_url(space || item),
+          url: publicUrl,
+          publicUrl: publicUrl,
           name: space.name || item.name || null
         };
         try {
@@ -107,20 +111,7 @@ var SpacedeckSpaces = {
         return;
       }
 
-      get_resource("/spaces/" + item._id, function(space) {
-        try {
-          sendPayload(space || item);
-        } catch (err) {
-          console.warn("Unable to postMessage selected space to parent", err);
-        }
-      }.bind(this), function(err) {
-        console.warn("Unable to fetch space info for share url", err);
-        try {
-          sendPayload(item);
-        } catch (innerErr) {
-          console.warn("Unable to postMessage selected space to parent", innerErr);
-        }
-      }.bind(this));
+      console.warn("Select space: missing edit_hash on item, nothing sent", item);
     },
     guest_logout: function() {
       if ("localStorage" in window && localStorage) {
