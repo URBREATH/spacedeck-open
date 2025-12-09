@@ -74,6 +74,13 @@ var SpacedeckSpaces = {
         this.active_profile_spaces = spaces;
       }.bind(this));
     },
+    public_share_url: function(space) {
+      if (space && space.edit_hash) {
+        var slugPart = (space.edit_slug && space.edit_slug.length) ? "-" + space.edit_slug : "";
+        return this.share_base + "/s/" + space.edit_hash + slugPart;
+      }
+      return this.share_base_url + space._id;
+    },
     select_space_for_parent: function(item) {
       if (!item || !window || !window.parent || window.parent === window) return;
       try {
@@ -81,7 +88,7 @@ var SpacedeckSpaces = {
           type: "spacedeck-select-space",
           spaceId: item._id,
           spaceType: item.space_type,
-          url: this.share_base_url + item._id,
+          url: this.public_share_url(item),
           name: item.name || null
         };
         window.parent.postMessage(payload, "*");
