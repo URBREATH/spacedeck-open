@@ -39,7 +39,6 @@ var SpacedeckSpaces = {
     share_base_url_enc: encodeURIComponent(location.origin+"/spaces/"),
     social_bar: true,
     can_add_comment: false,
-    embedded_mode: false,
 
     space_info_section: "access",
     editors_section: "list",
@@ -73,78 +72,6 @@ var SpacedeckSpaces = {
       load_spaces_search(query, function(spaces) {
         this.active_profile_spaces = spaces;
       }.bind(this));
-    },
-    public_share_url: function(space) {
-      if (!space || !space.edit_hash) return null;
-      var slugPart = (space.edit_slug && space.edit_slug.length) ? "-" + space.edit_slug : "";
-      return this.share_base + "/s/" + space.edit_hash + slugPart;
-    },
-    select_space_for_parent: function(item) {
-      if (!item || !window || !window.parent || window.parent === window) return;
-      var sendPayload = function(space) {
-        var publicUrl = this.public_share_url(space || item);
-        if (!publicUrl) {
-          console.warn("No public URL available for selected space", space || item);
-          return;
-        }
-        var payload = {
-          type: "spacedeck-select-space",
-          spaceId: space._id || item._id,
-          spaceType: space.space_type || item.space_type,
-          url: publicUrl,
-          publicUrl: publicUrl,
-          name: space.name || item.name || null
-        };
-        try {
-          console.log("[spacedeck] select_space_for_parent payload", payload);
-        } catch (e) {}
-        window.parent.postMessage(payload, "*");
-        this.close_dropdown();
-      }.bind(this);
-
-      if (item.edit_hash) {
-        try {
-          sendPayload(item);
-        } catch (err) {
-          console.warn("Unable to postMessage selected space to parent", err);
-        }
-        return;
-      }
-
-        console.warn("Select space: missing edit_hash on item, nothing sent", item);
-    },
-    use_access_link_in_decidim: function() {
-      var space = this.access_settings_space;
-      if (!space || !window || !window.parent || window.parent === window) return;
-
-      var publicUrl = this.public_share_url(space);
-      if (!publicUrl) {
-        console.warn("No public URL available for Decidim payload", space);
-        return;
-      }
-
-      var payload = {
-        type: "spacedeck-select-space",
-        spaceId: space._id,
-        spaceType: space.space_type || "space",
-        url: publicUrl,
-        publicUrl: publicUrl,
-        name: space.name || null
-      };
-
-      try {
-        console.log("[spacedeck] use_access_link_in_decidim payload", payload);
-      } catch (e) {}
-
-      try {
-        window.parent.postMessage(payload, "*");
-      } catch (err) {
-        console.warn("Unable to postMessage access link to parent", err);
-      }
-
-      try {
-        this.close_modal();
-      } catch (e) {}
     },
     guest_logout: function() {
       if ("localStorage" in window && localStorage) {
@@ -183,7 +110,6 @@ var SpacedeckSpaces = {
       }
       
       this.embedded = !!(get_query_param("embedded"));
-      this.embedded_mode = this.embedded || (typeof window !== "undefined" && window.self !== window.top);
 
       var userReady = function() {
         this.close_dropdown();
