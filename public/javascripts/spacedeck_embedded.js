@@ -129,6 +129,22 @@
 
     window.__spacedeckEmbeddedAuthenticated = false;
     window.__spacedeckEmbeddedLoginPending = false;
+    try {
+      if (window.sessionStorage) {
+        window.sessionStorage.removeItem("sd_session_token");
+        window.sessionStorage.removeItem("sd_session_email");
+        window.sessionStorage.removeItem("sd_session_name");
+        window.sessionStorage.removeItem("sd_session_user_id");
+      }
+      if (window.localStorage) {
+        window.localStorage.removeItem("sd_session_token");
+        window.localStorage.removeItem("sd_session_email");
+        window.localStorage.removeItem("sd_session_name");
+        window.localStorage.removeItem("sd_session_user_id");
+      }
+    } catch (err) {
+      try { console.warn("[spacedeck] Unable to clear embedded session storage", err); } catch (e) {}
+    }
 
     var afterLogout = function() {
       if (nextToken) {
