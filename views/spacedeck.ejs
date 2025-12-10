@@ -17,7 +17,9 @@
         webEndpoint: location.origin,
         apiEndpoint: location.origin,
         websocketsEndpoint: location.origin.replace("https:","wss:").replace("http:","ws:"),
-        options: <%- config && config.spacedeck ? JSON.stringify(config.spacedeck) : "{}" %>
+        options: <%- config && config.spacedeck ? JSON.stringify(config.spacedeck) : "{}" %>,
+        allowedEmbedOrigins: <%- config && config.keycloak && config.keycloak.allowed_origins ? JSON.stringify(config.keycloak.allowed_origins) : "[]" %>,
+        postMessageTimeoutMs: <%- config && config.keycloak && config.keycloak.post_message_timeout_ms ? Number(config.keycloak.post_message_timeout_ms) : 5000 %>
       };
     </script>
 
@@ -33,6 +35,7 @@
     <script src="/javascripts/route-recognizer.js"></script>
 
     <script src="/javascripts/backend.js"></script>
+    <script src="/javascripts/spacedeck_embedded.js"></script>
     <script src="/javascripts/link_parser.js"></script>
     <script src="/javascripts/vector-render.js"></script>
     <script src="/javascripts/mousetrap.js"></script>

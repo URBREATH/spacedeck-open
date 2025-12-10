@@ -52,6 +52,15 @@ SpacedeckUsers = {
       }.bind(this), function() {
         // error
         this.loading_user = false;
+        if (window.__spacedeckEmbeddedLoginPending) {
+          this.logged_in = false;
+          this.user = {};
+          if (on_error) {
+            on_error();
+          }
+          return;
+        }
+
         this.logout();
 
         if (on_error) {

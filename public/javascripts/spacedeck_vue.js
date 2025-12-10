@@ -148,6 +148,9 @@ function boot_spacedeck() {
   };
 
   spacedeck.setup_section_module();
+  if (typeof window.__spacedeckInitEmbeddedAuth === "function") {
+    window.__spacedeckInitEmbeddedAuth(spacedeck);
+  }
   spacedeck.load_user(function() {
     spacedeck.route();
   },function() {
