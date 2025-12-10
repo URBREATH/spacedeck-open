@@ -19,6 +19,12 @@
   var loginInFlight = false;
   var timeoutId = null;
 
+  try {
+    window.__spacedeckSkipAuthProbe = !!(window.sessionStorage && window.sessionStorage.getItem("__spacedeckSkipAuthProbe") === "true");
+  } catch (err) {
+    window.__spacedeckSkipAuthProbe = false;
+  }
+
   window.__spacedeckEmbeddedLoginPending = true;
   window.__spacedeckEmbeddedAuthenticated = false;
 
@@ -106,6 +112,13 @@
 
     if (timeoutId) window.clearTimeout(timeoutId);
 
+    try {
+      if (window.sessionStorage) {
+        window.sessionStorage.removeItem("__spacedeckSkipAuthProbe");
+      }
+      window.__spacedeckSkipAuthProbe = false;
+    } catch (err) {}
+
     loginInFlight = true;
     window.__spacedeckEmbeddedLoginPending = true;
 
@@ -128,7 +141,16 @@
     var nextIdToken = data && (data.idToken || data.id_token);
 
     window.__spacedeckEmbeddedAuthenticated = false;
-    window.__spacedeckEmbeddedLoginPending = false;
+    // Keep pending true to avoid router redirecting to Keycloak after logout when embedded
+    window.__spacedeckEmbeddedLoginPending = !nextToken;
+    if (!nextToken) {
+      try {
+        if (window.sessionStorage) {
+          window.sessionStorage.setItem("__spacedeckSkipAuthProbe", "true");
+        }
+      } catch (err) {}
+      window.__spacedeckSkipAuthProbe = true;
+    }
     try {
       if (window.sessionStorage) {
         window.sessionStorage.removeItem("sd_session_token");
