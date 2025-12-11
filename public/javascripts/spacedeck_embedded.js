@@ -18,6 +18,7 @@
   var postMessageTimeoutMs = (window.ENV && window.ENV.postMessageTimeoutMs) || 5000;
   var loginInFlight = false;
   var timeoutId = null;
+  window.__spacedeckSkipIdpRedirect = false;
 
   try {
     window.__spacedeckSkipAuthProbe = !!(window.sessionStorage && window.sessionStorage.getItem("__spacedeckSkipAuthProbe") === "true");
@@ -143,6 +144,7 @@
     window.__spacedeckEmbeddedAuthenticated = false;
     // Keep pending true to avoid router redirecting to Keycloak after logout when embedded
     window.__spacedeckEmbeddedLoginPending = !nextToken;
+    window.__spacedeckSkipIdpRedirect = true;
     if (!nextToken) {
       try {
         if (window.sessionStorage) {
@@ -217,6 +219,7 @@
       payload.idToken = data.idToken || data.id_token;
     }
 
+    window.__spacedeckSkipIdpRedirect = false;
     loginWithPayload(payload, vueInstance);
   }
 
